@@ -169,6 +169,17 @@
       filter: brightness(.98);
     }
 
+    .punch-btn:disabled {
+      cursor: not-allowed;
+      filter: grayscale(.25);
+      opacity: .58;
+      box-shadow: none;
+    }
+
+    .punch-btn:disabled:active {
+      transform: none;
+    }
+
     .punch-btn strong {
       font-size: clamp(1rem, 4.6vw, 1.18rem);
       letter-spacing: 0;
@@ -330,6 +341,83 @@
       padding-right: 2px;
     }
 
+    .quick-edit {
+      margin-top: 10px;
+      width: 100%;
+      border-color: transparent;
+      background: var(--panel-soft);
+      color: var(--green-dark);
+      font-weight: 800;
+    }
+
+    .manual-editor {
+      display: grid;
+      gap: 11px;
+      margin-bottom: 12px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-soft);
+    }
+
+    .manual-editor h3 {
+      margin: 0;
+      font-size: .95rem;
+      letter-spacing: 0;
+    }
+
+    .time-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 9px;
+    }
+
+    .field {
+      display: grid;
+      gap: 5px;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: .78rem;
+      font-weight: 700;
+    }
+
+    .time-input {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--ink);
+      padding: 8px 10px;
+    }
+
+    .form-actions {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+    }
+
+    .primary-btn {
+      border: 0;
+      border-radius: 8px;
+      background: var(--green);
+      color: #fff;
+      cursor: pointer;
+      font-weight: 800;
+      min-height: 42px;
+      padding: 10px 12px;
+    }
+
+    .day-actions {
+      display: flex;
+      gap: 7px;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
     .empty {
       margin: 0;
       padding: 22px 12px;
@@ -421,6 +509,11 @@
         grid-template-columns: 1fr;
       }
 
+      .time-grid,
+      .form-actions {
+        grid-template-columns: 1fr;
+      }
+
       .row {
         grid-template-columns: 1fr;
       }
@@ -469,6 +562,7 @@
               <span id="last-saida">Ainda não registrado</span>
             </button>
           </div>
+          <button class="small-btn quick-edit" id="editToday" type="button">Editar horários de hoje</button>
         </section>
 
         <section class="section">
@@ -499,28 +593,28 @@
         <section class="section">
           <div class="section-title">
             <h2>Pagamento</h2>
-            <span class="hint">Salário: R$ 2.300,00</span>
+            <span class="hint">Valores do mês atual</span>
           </div>
           <div class="stats">
             <div class="stat">
-              <span>Horas extras no mês</span>
+              <span>Salário-base</span>
+              <b id="baseSalary">R$ 2.000,00</b>
+            </div>
+            <div class="stat">
+              <span>Bônus mensal</span>
+              <b id="monthlyBonus">R$ 300,00</b>
+            </div>
+            <div class="stat">
+              <span>Horas extras acumuladas no mês</span>
               <b id="monthExtra">0h00</b>
             </div>
             <div class="stat">
-              <span>Valor acumulado das extras</span>
+              <span>Valor acumulado das horas extras</span>
               <b id="monthExtraValue">R$ 0,00</b>
             </div>
-            <div class="stat">
-              <span>Próximo pagamento estimado</span>
-              <b id="nextPay">R$ 1.000,00</b>
-            </div>
-            <div class="stat">
-              <span>Valor fixo da quinzena</span>
-              <b>R$ 1.000,00</b>
-            </div>
             <div class="stat wide">
-              <span>Valor da hora normal e da hora extra</span>
-              <b id="hourValues">R$ 0,00 / R$ 0,00</b>
+              <span>Total estimado do mês</span>
+              <b id="monthEstimatedTotal">R$ 2.300,00</b>
             </div>
           </div>
         </section>
@@ -548,6 +642,36 @@
           </div>
 
           <div class="panel" id="panel-history">
+            <form class="manual-editor" id="manualForm">
+              <h3>Adicionar ou editar dia</h3>
+              <div class="field">
+                <label for="manualDate">Data</label>
+                <input class="date-input" id="manualDate" type="date" required>
+              </div>
+              <div class="time-grid">
+                <div class="field">
+                  <label for="manual-entrada">Entrada</label>
+                  <input class="time-input" id="manual-entrada" data-manual-type="entrada" type="time">
+                </div>
+                <div class="field">
+                  <label for="manual-saida_almoco">Saída para Almoço</label>
+                  <input class="time-input" id="manual-saida_almoco" data-manual-type="saida_almoco" type="time">
+                </div>
+                <div class="field">
+                  <label for="manual-volta_almoco">Volta do Almoço</label>
+                  <input class="time-input" id="manual-volta_almoco" data-manual-type="volta_almoco" type="time">
+                </div>
+                <div class="field">
+                  <label for="manual-saida">Saída</label>
+                  <input class="time-input" id="manual-saida" data-manual-type="saida" type="time">
+                </div>
+              </div>
+              <span class="hint" id="manualDaySummary">Escolha uma data para preencher ou corrigir.</span>
+              <div class="form-actions">
+                <button class="primary-btn" type="submit">Salvar horários</button>
+                <button class="small-btn" id="clearManualForm" type="button">Limpar formulário</button>
+              </div>
+            </form>
             <div class="history-toolbar">
               <input class="date-input" id="historyDate" type="date" aria-label="Filtrar histórico por data">
               <button class="small-btn danger" id="clearAll" type="button">Limpar tudo</button>
@@ -563,10 +687,11 @@
 
   <script>
     const STORAGE_KEY = "controle-ponto-registros-v1";
-    const SALARY = 2300;
+    const BASE_SALARY = 2000;
+    const MONTHLY_BONUS = 300;
     const MONTHLY_HOURS = 220;
     const EXTRA_RATE = 1.5;
-    const FORTNIGHT_FIXED = 1000;
+    const STANDARD_DAILY_MINUTES = 8 * 60 + 48;
 
     const labels = {
       entrada: "Entrada",
@@ -641,15 +766,13 @@
 
     function standardMinutesFor(date) {
       const day = date.getDay();
-      if (day === 1) return 600;
-      if (day >= 2 && day <= 5) return 510;
+      if (day >= 1 && day <= 5) return STANDARD_DAILY_MINUTES;
       return 0;
     }
 
     function standardLabelFor(date) {
       const minutes = standardMinutesFor(date);
-      if (date.getDay() === 1) return "Segunda: 07:00 às 18:00";
-      if (date.getDay() >= 2 && date.getDay() <= 5) return "Terça a sexta: 07:00 às 16:30";
+      if (date.getDay() >= 1 && date.getDay() <= 5) return "Segunda a sexta: 07:00 às 16:48 · intervalo de 1h";
       return "Fim de semana: sem jornada padrão";
     }
 
@@ -722,11 +845,83 @@
     }
 
     function hourValue() {
-      return SALARY / MONTHLY_HOURS;
+      return BASE_SALARY / MONTHLY_HOURS;
     }
 
     function extraValue(minutes) {
       return (minutes / 60) * hourValue() * EXTRA_RATE;
+    }
+
+    function localDateTime(day, time) {
+      return new Date(`${day}T${time}:00`);
+    }
+
+    function syncManualDate(day) {
+      document.getElementById("manualDate").value = day;
+      document.getElementById("historyDate").value = day;
+      fillManualForm(day);
+    }
+
+    function fillManualForm(day) {
+      const summary = daySummary(day);
+      typeOrder.forEach(type => {
+        const input = document.querySelector(`[data-manual-type="${type}"]`);
+        const record = latestByType(summary.records, type);
+        input.value = record ? timeText(parseRecordDate(record)) : "";
+      });
+
+      document.getElementById("manualDaySummary").textContent =
+        `${minutesToText(summary.worked)} trabalhadas · ${minutesToText(summary.extra)} extra · ${money.format(extraValue(summary.extra))}`;
+    }
+
+    function clearManualForm() {
+      document.getElementById("manualDate").value = dateKey(new Date());
+      typeOrder.forEach(type => {
+        document.querySelector(`[data-manual-type="${type}"]`).value = "";
+      });
+      fillManualForm(document.getElementById("manualDate").value);
+    }
+
+    function saveManualDay(event) {
+      event.preventDefault();
+      const day = document.getElementById("manualDate").value;
+      if (!day) {
+        showToast("Escolha uma data para salvar.");
+        return;
+      }
+
+      const remaining = state.records.filter(record => {
+        return record.day !== day || !typeOrder.includes(record.type);
+      });
+
+      const manualRecords = typeOrder
+        .map(type => {
+          const time = document.querySelector(`[data-manual-type="${type}"]`).value;
+          if (!time) return null;
+          const at = localDateTime(day, time);
+          return {
+            id: `manual-${day}-${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            type,
+            at: at.toISOString(),
+            day,
+            month: monthKey(at),
+            manual: true
+          };
+        })
+        .filter(Boolean);
+
+      if (!manualRecords.length) {
+        showToast("Informe pelo menos um horário.");
+        return;
+      }
+
+      state.records = [...remaining, ...manualRecords]
+        .sort((a, b) => new Date(a.at) - new Date(b.at));
+      saveRecords();
+      document.getElementById("historyDate").value = day;
+      render();
+      fillManualForm(day);
+      showToast("Horários salvos e cálculos atualizados.");
     }
 
     function showToast(message) {
@@ -739,15 +934,21 @@
 
     function addRecord(type) {
       const now = new Date();
+      const today = dateKey(now);
+      if (recordsForDay(today).some(record => record.type === type)) {
+        showToast(`${labels[type]} já foi registrado hoje. Use Editar para corrigir o horário.`);
+        return;
+      }
       state.records.push({
         id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
         type,
         at: now.toISOString(),
-        day: dateKey(now),
+        day: today,
         month: monthKey(now)
       });
       saveRecords();
       render();
+      syncManualDate(dateKey(now));
       showToast(`${labels[type]} registrado às ${timeText(now)}.`);
     }
 
@@ -768,7 +969,10 @@
       typeOrder.forEach(type => {
         const latest = latestByType(todayRecords, type);
         const element = document.getElementById(`last-${type}`);
-        element.textContent = latest ? `Hoje às ${timeText(parseRecordDate(latest))}` : "Ainda não registrado";
+        const button = document.querySelector(`.punch-btn[data-type="${type}"]`);
+        element.textContent = latest ? `Registrado hoje às ${timeText(parseRecordDate(latest))}` : "Ainda não registrado";
+        button.disabled = Boolean(latest);
+        button.setAttribute("aria-disabled", String(Boolean(latest)));
       });
     }
 
@@ -779,7 +983,9 @@
       document.getElementById("standardDay").textContent = standardLabelFor(today);
       document.getElementById("todayWorked").textContent = minutesToText(summary.worked);
       document.getElementById("todayExtra").textContent = minutesToText(summary.extra);
-      document.getElementById("todayPunchCount").textContent = String(summary.records.length);
+      document.getElementById("todayPunchCount").textContent = String(
+        typeOrder.filter(type => summary.records.some(record => record.type === type)).length
+      );
       document.getElementById("todayExtraValue").textContent = money.format(extraValue(summary.extra));
     }
 
@@ -788,12 +994,11 @@
       const monthSummaries = summariesForKeys(currentMonthKeys(now));
       const monthExtra = monthSummaries.reduce((sum, item) => sum + item.extra, 0);
       const extraTotal = extraValue(monthExtra);
-      const normalHour = hourValue();
-
+      document.getElementById("baseSalary").textContent = money.format(BASE_SALARY);
+      document.getElementById("monthlyBonus").textContent = money.format(MONTHLY_BONUS);
       document.getElementById("monthExtra").textContent = minutesToText(monthExtra);
       document.getElementById("monthExtraValue").textContent = money.format(extraTotal);
-      document.getElementById("nextPay").textContent = money.format(FORTNIGHT_FIXED + extraTotal);
-      document.getElementById("hourValues").textContent = `${money.format(normalHour)} / ${money.format(normalHour * EXTRA_RATE)}`;
+      document.getElementById("monthEstimatedTotal").textContent = money.format(BASE_SALARY + MONTHLY_BONUS + extraTotal);
       document.getElementById("monthLabel").textContent = now.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
     }
 
@@ -849,13 +1054,13 @@
       ));
       container.appendChild(summaryRow(
         "Valor das extras",
-        "Hora normal baseada em 220 horas mensais",
+        `Hora extra calculada somente sobre o salário-base de ${money.format(BASE_SALARY)}`,
         money.format(extraValue(extra))
       ));
       container.appendChild(summaryRow(
         "Estimativa mensal",
-        "Salário mensal mais extras acumuladas",
-        money.format(SALARY + extraValue(extra))
+        "Salário-base + bônus mensal + extras acumuladas",
+        money.format(BASE_SALARY + MONTHLY_BONUS + extraValue(extra))
       ));
     }
 
@@ -866,10 +1071,32 @@
       const container = document.getElementById("historyList");
       const selected = input.value;
       const records = recordsForDay(selected);
+      const summary = daySummary(selected);
       container.innerHTML = "";
 
+      const dayRow = document.createElement("div");
+      dayRow.className = "row";
+      dayRow.innerHTML = `
+        <div class="row-main">
+          <strong>${shortDateFmt.format(summary.date)}</strong>
+          <span>${minutesToText(summary.worked)} trabalhadas · ${minutesToText(summary.extra)} extra · ${money.format(extraValue(summary.extra))}</span>
+        </div>
+        <div class="day-actions">
+          <span class="row-value">${records.length} registros</span>
+          <button class="small-btn" type="button" data-edit-day="${selected}">Editar</button>
+        </div>
+      `;
+      container.appendChild(dayRow);
+
       if (!records.length) {
-        container.innerHTML = '<p class="empty">Nenhum registro para esta data.</p>';
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.innerHTML = `
+          <p>Nenhum registro para esta data.</p>
+          <button class="small-btn" type="button" data-edit-day="${selected}">Preencher este dia</button>
+        `;
+        container.appendChild(empty);
+        fillManualForm(selected);
         return;
       }
 
@@ -881,13 +1108,16 @@
             <strong>${labels[record.type]}</strong>
             <span>${dateFmt.format(parseRecordDate(record))}</span>
           </div>
-          <div>
+          <div class="day-actions">
             <span class="row-value">${timeText(parseRecordDate(record))}</span>
+            <button class="small-btn" type="button" data-edit-day="${record.day}">Editar</button>
             <button class="small-btn danger" type="button" data-delete="${record.id}" aria-label="Apagar registro">Apagar</button>
           </div>
         `;
         container.appendChild(row);
       });
+
+      fillManualForm(selected);
     }
 
     function render() {
@@ -903,6 +1133,12 @@
       button.addEventListener("click", () => addRecord(button.dataset.type));
     });
 
+    document.getElementById("editToday").addEventListener("click", () => {
+      syncManualDate(dateKey(new Date()));
+      document.querySelector('[data-tab="history"]').click();
+      document.getElementById("manualForm").scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+
     document.querySelectorAll(".tab").forEach(button => {
       button.addEventListener("click", () => {
         state.tab = button.dataset.tab;
@@ -912,9 +1148,30 @@
       });
     });
 
-    document.getElementById("historyDate").addEventListener("change", renderHistory);
+    document.getElementById("manualForm").addEventListener("submit", saveManualDay);
+
+    document.getElementById("clearManualForm").addEventListener("click", clearManualForm);
+
+    document.getElementById("manualDate").addEventListener("change", event => {
+      const day = event.target.value || dateKey(new Date());
+      document.getElementById("historyDate").value = day;
+      fillManualForm(day);
+      renderHistory();
+    });
+
+    document.getElementById("historyDate").addEventListener("change", event => {
+      syncManualDate(event.target.value || dateKey(new Date()));
+      renderHistory();
+    });
 
     document.getElementById("historyList").addEventListener("click", event => {
+      const editButton = event.target.closest("[data-edit-day]");
+      if (editButton) {
+        syncManualDate(editButton.dataset.editDay);
+        document.getElementById("manualForm").scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+
       const button = event.target.closest("[data-delete]");
       if (button) deleteRecord(button.dataset.delete);
     });
@@ -927,6 +1184,7 @@
       showToast("Todos os registros foram apagados.");
     });
 
+    syncManualDate(dateKey(new Date()));
     render();
     window.setInterval(renderClock, 1000);
 

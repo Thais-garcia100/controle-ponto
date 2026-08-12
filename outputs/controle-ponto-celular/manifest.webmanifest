@@ -2,7 +2,7 @@
   "name": "Controle de Ponto",
   "short_name": "Ponto",
   "description": "Controle de ponto e cálculo de horas extras no celular.",
-  "start_url": "./controle-ponto.html",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f5f7f4",

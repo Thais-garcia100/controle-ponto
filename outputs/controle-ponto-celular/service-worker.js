@@ -1,6 +1,7 @@
-const CACHE_NAME = "controle-ponto-v1";
+const CACHE_NAME = "controle-ponto-v3";
 const APP_FILES = [
   "./",
+  "./index.html",
   "./controle-ponto.html",
   "./manifest.webmanifest",
   "./icon.svg"
