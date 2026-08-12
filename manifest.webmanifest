@@ -1,0 +1,19 @@
+{
+  "name": "Controle de Ponto",
+  "short_name": "Ponto",
+  "description": "Controle de ponto e cálculo de horas extras no celular.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f7f4",
+  "theme_color": "#2f8d62",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
