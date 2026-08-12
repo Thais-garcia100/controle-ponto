@@ -638,6 +638,10 @@
           </div>
 
           <div class="panel" id="panel-month">
+            <div class="field month-selector">
+              <label for="archiveMonth">Consultar mês arquivado</label>
+              <input class="date-input" id="archiveMonth" type="month" aria-label="Selecionar mês e ano">
+            </div>
             <div class="list" id="monthSummary"></div>
           </div>
 
@@ -703,7 +707,8 @@
     const typeOrder = ["entrada", "saida_almoco", "volta_almoco", "saida"];
     const state = {
       records: loadRecords(),
-      tab: "week"
+      tab: "week",
+      archiveMonth: monthKey(new Date())
     };
 
     const money = new Intl.NumberFormat("pt-BR", {
@@ -753,6 +758,10 @@
       return new Date(record.at);
     }
 
+    function recordDayKey(record) {
+      return record.day || dateKey(parseRecordDate(record));
+    }
+
     function timeText(date) {
       return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
     }
@@ -778,7 +787,7 @@
 
     function recordsForDay(key) {
       return state.records
-        .filter(record => record.day === key)
+        .filter(record => recordDayKey(record) === key)
         .sort((a, b) => new Date(a.at) - new Date(b.at));
     }
 
@@ -844,6 +853,24 @@
       });
     }
 
+    function keysForMonth(key) {
+      const [year, month] = key.split("-").map(Number);
+      return currentMonthKeys(new Date(year, month - 1, 1));
+    }
+
+    function monthTitle(key) {
+      const [year, month] = key.split("-").map(Number);
+      return new Date(year, month - 1, 1).toLocaleDateString("pt-BR", {
+        month: "long",
+        year: "numeric"
+      });
+    }
+
+    function recordedDayKeys() {
+      return [...new Set(state.records.map(recordDayKey).filter(Boolean))]
+        .sort((a, b) => b.localeCompare(a));
+    }
+
     function hourValue() {
       return BASE_SALARY / MONTHLY_HOURS;
     }
@@ -891,7 +918,7 @@
       }
 
       const remaining = state.records.filter(record => {
-        return record.day !== day || !typeOrder.includes(record.type);
+        return recordDayKey(record) !== day || !typeOrder.includes(record.type);
       });
 
       const manualRecords = typeOrder
@@ -1042,26 +1069,62 @@
     function renderMonth() {
       const container = document.getElementById("monthSummary");
       container.innerHTML = "";
-      const summaries = summariesForKeys(currentMonthKeys(new Date()));
+      const selector = document.getElementById("archiveMonth");
+      if (!selector.value) selector.value = state.archiveMonth;
+      const selectedMonth = selector.value || monthKey(new Date());
+      state.archiveMonth = selectedMonth;
+      const summaries = summariesForKeys(keysForMonth(selectedMonth));
       const daysWithRecords = summaries.filter(item => item.records.length);
       const worked = summaries.reduce((sum, item) => sum + item.worked, 0);
       const extra = summaries.reduce((sum, item) => sum + item.extra, 0);
+      const extraTotal = extraValue(extra);
 
       container.appendChild(summaryRow(
-        "Total do mês",
-        `${minutesToText(worked)} trabalhadas em ${daysWithRecords.length} dias`,
-        `${minutesToText(extra)} extra`
+        monthTitle(selectedMonth),
+        `${daysWithRecords.length} dias com registros`,
+        `${daysWithRecords.reduce((sum, item) => sum + item.records.length, 0)} pontos`
       ));
       container.appendChild(summaryRow(
-        "Valor das extras",
-        `Hora extra calculada somente sobre o salário-base de ${money.format(BASE_SALARY)}`,
-        money.format(extraValue(extra))
+        "Horas trabalhadas",
+        "Total registrado no mês",
+        minutesToText(worked)
       ));
       container.appendChild(summaryRow(
-        "Estimativa mensal",
-        "Salário-base + bônus mensal + extras acumuladas",
-        money.format(BASE_SALARY + MONTHLY_BONUS + extraValue(extra))
+        "Horas extras acumuladas",
+        "Jornada padrão considerada por dia útil",
+        minutesToText(extra)
       ));
+      container.appendChild(summaryRow("Valor total das horas extras", "Calculado somente sobre o salário-base", money.format(extraTotal)));
+      container.appendChild(summaryRow("Salário-base", "Valor mensal", money.format(BASE_SALARY)));
+      container.appendChild(summaryRow("Bônus", "Valor mensal separado", money.format(MONTHLY_BONUS)));
+      container.appendChild(summaryRow(
+        "Total estimado do mês",
+        "Salário-base + bônus + horas extras",
+        money.format(BASE_SALARY + MONTHLY_BONUS + extraTotal)
+      ));
+
+      if (!daysWithRecords.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "Nenhum registro de ponto neste mês.";
+        container.appendChild(empty);
+        return;
+      }
+
+      daysWithRecords.slice().reverse().forEach(item => {
+        const points = typeOrder
+          .map(type => {
+            const record = latestByType(item.records, type);
+            return record ? `${labels[type]} ${timeText(parseRecordDate(record))}` : null;
+          })
+          .filter(Boolean)
+          .join(" · ");
+        container.appendChild(summaryRow(
+          shortDateFmt.format(item.date),
+          points,
+          `${minutesToText(item.worked)} · ${minutesToText(item.extra)} extra`
+        ));
+      });
     }
 
     function renderHistory() {
@@ -1083,7 +1146,7 @@
         </div>
         <div class="day-actions">
           <span class="row-value">${records.length} registros</span>
-          <button class="small-btn" type="button" data-edit-day="${selected}">Editar</button>
+          <button class="small-btn" type="button" data-edit-day="${selected}">${records.length ? "Editar horários" : "Adicionar horários"}</button>
         </div>
       `;
       container.appendChild(dayRow);
@@ -1097,7 +1160,6 @@
         `;
         container.appendChild(empty);
         fillManualForm(selected);
-        return;
       }
 
       records.forEach(record => {
@@ -1110,8 +1172,32 @@
           </div>
           <div class="day-actions">
             <span class="row-value">${timeText(parseRecordDate(record))}</span>
-            <button class="small-btn" type="button" data-edit-day="${record.day}">Editar</button>
             <button class="small-btn danger" type="button" data-delete="${record.id}" aria-label="Apagar registro">Apagar</button>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+
+      const archivedDays = recordedDayKeys().filter(day => day !== selected);
+      if (archivedDays.length) {
+        const heading = document.createElement("div");
+        heading.className = "hint";
+        heading.textContent = "Dias arquivados";
+        container.appendChild(heading);
+      }
+
+      archivedDays.forEach(day => {
+        const item = daySummary(day);
+        const row = document.createElement("div");
+        row.className = "row";
+        row.innerHTML = `
+          <div class="row-main">
+            <strong>${shortDateFmt.format(item.date)}</strong>
+            <span>${minutesToText(item.worked)} trabalhadas · ${minutesToText(item.extra)} extra · ${item.records.length} registros</span>
+          </div>
+          <div class="day-actions">
+            <span class="row-value">${money.format(extraValue(item.extra))}</span>
+            <button class="small-btn" type="button" data-edit-day="${day}">Editar horários</button>
           </div>
         `;
         container.appendChild(row);
@@ -1149,6 +1235,11 @@
     });
 
     document.getElementById("manualForm").addEventListener("submit", saveManualDay);
+
+    document.getElementById("archiveMonth").addEventListener("change", event => {
+      state.archiveMonth = event.target.value || monthKey(new Date());
+      renderMonth();
+    });
 
     document.getElementById("clearManualForm").addEventListener("click", clearManualForm);
 
