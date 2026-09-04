@@ -303,6 +303,15 @@
       white-space: nowrap;
     }
 
+    .row-value.negative,
+    .negative {
+      color: var(--rose);
+    }
+
+    .positive {
+      color: var(--green-dark);
+    }
+
     .history-toolbar {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
@@ -577,7 +586,7 @@
             </div>
             <div class="stat">
               <span>Horas extras hoje</span>
-              <b id="todayExtra">0h00</b>
+              <b class="positive" id="todayExtra">0h00</b>
             </div>
             <div class="stat">
               <span>Registros de hoje</span>
@@ -585,7 +594,19 @@
             </div>
             <div class="stat">
               <span>Valor extra de hoje</span>
-              <b id="todayExtraValue">R$ 0,00</b>
+              <b class="positive" id="todayExtraValue">R$ 0,00</b>
+            </div>
+            <div class="stat">
+              <span>Saldo diário</span>
+              <b id="todayBalance">0h00</b>
+            </div>
+            <div class="stat">
+              <span>Horas trabalhadas em feriado</span>
+              <b class="positive" id="todayHolidayWorked">0h00</b>
+            </div>
+            <div class="stat wide">
+              <span>Valor das horas de feriado</span>
+              <b class="positive" id="todayHolidayValue">R$ 0,00</b>
             </div>
           </div>
         </section>
@@ -606,11 +627,19 @@
             </div>
             <div class="stat">
               <span>Horas extras acumuladas no mês</span>
-              <b id="monthExtra">0h00</b>
+              <b class="positive" id="monthExtra">0h00</b>
             </div>
             <div class="stat">
               <span>Valor acumulado das horas extras</span>
-              <b id="monthExtraValue">R$ 0,00</b>
+              <b class="positive" id="monthExtraValue">R$ 0,00</b>
+            </div>
+            <div class="stat">
+              <span>Horas trabalhadas em feriado</span>
+              <b class="positive" id="monthHolidayWorked">0h00</b>
+            </div>
+            <div class="stat">
+              <span>Valor das horas de feriado</span>
+              <b class="positive" id="monthHolidayValue">R$ 0,00</b>
             </div>
             <div class="stat wide">
               <span>Total estimado do mês</span>
@@ -670,6 +699,11 @@
                   <input class="time-input" id="manual-saida" data-manual-type="saida" type="time">
                 </div>
               </div>
+              <label class="field">
+                <span>Feriado</span>
+                <input id="manualHoliday" type="checkbox">
+                <span class="hint">Este dia é feriado</span>
+              </label>
               <span class="hint" id="manualDaySummary">Escolha uma data para preencher ou corrigir.</span>
               <div class="form-actions">
                 <button class="primary-btn" type="submit">Salvar horários</button>
@@ -691,10 +725,12 @@
 
   <script>
     const STORAGE_KEY = "controle-ponto-registros-v1";
+    const DAY_META_KEY = "controle-ponto-dias-v1";
     const BASE_SALARY = 2000;
     const MONTHLY_BONUS = 300;
     const MONTHLY_HOURS = 220;
     const EXTRA_RATE = 1.5;
+    const HOLIDAY_RATE = 2;
     const STANDARD_DAILY_MINUTES = 8 * 60 + 48;
 
     const labels = {
@@ -707,6 +743,7 @@
     const typeOrder = ["entrada", "saida_almoco", "volta_almoco", "saida"];
     const state = {
       records: loadRecords(),
+      dayMeta: loadDayMeta(),
       tab: "week",
       archiveMonth: monthKey(new Date())
     };
@@ -742,6 +779,19 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state.records));
     }
 
+    function loadDayMeta() {
+      try {
+        const raw = localStorage.getItem(DAY_META_KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch {
+        return {};
+      }
+    }
+
+    function saveDayMeta() {
+      localStorage.setItem(DAY_META_KEY, JSON.stringify(state.dayMeta));
+    }
+
     function pad(value) {
       return String(value).padStart(2, "0");
     }
@@ -771,6 +821,11 @@
       const h = Math.floor(rounded / 60);
       const m = rounded % 60;
       return `${h}h${pad(m)}`;
+    }
+
+    function signedMinutesToText(minutes) {
+      const sign = minutes < 0 ? "-" : "";
+      return `${sign}${minutesToText(Math.abs(minutes))}`;
     }
 
     function standardMinutesFor(date) {
@@ -823,8 +878,13 @@
       const date = records[0] ? parseRecordDate(records[0]) : new Date(`${key}T12:00:00`);
       const worked = dailyWorkedMinutes(records);
       const expected = standardMinutesFor(date);
-      const extra = Math.max(0, worked - expected);
-      return { key, date, records, worked, expected, extra };
+      const isHoliday = Boolean(state.dayMeta[key]?.holiday);
+      const balance = isHoliday ? worked : worked - expected;
+      const regularExtra = isHoliday ? 0 : Math.max(0, balance);
+      const holidayExtra = isHoliday ? worked : 0;
+      const deficit = isHoliday ? 0 : Math.max(0, expected - worked);
+      const extra = regularExtra;
+      return { key, date, records, worked, expected, extra, regularExtra, holidayExtra, deficit, balance, isHoliday };
     }
 
     function summariesForKeys(keys) {
@@ -867,7 +927,10 @@
     }
 
     function recordedDayKeys() {
-      return [...new Set(state.records.map(recordDayKey).filter(Boolean))]
+      return [...new Set([
+        ...state.records.map(recordDayKey).filter(Boolean),
+        ...Object.keys(state.dayMeta).filter(day => state.dayMeta[day]?.holiday)
+      ])]
         .sort((a, b) => b.localeCompare(a));
     }
 
@@ -877,6 +940,20 @@
 
     function extraValue(minutes) {
       return (minutes / 60) * hourValue() * EXTRA_RATE;
+    }
+
+    function holidayValue(minutes) {
+      return (minutes / 60) * hourValue() * HOLIDAY_RATE;
+    }
+
+    function totalExtraValue(summary) {
+      return extraValue(summary.regularExtra) + holidayValue(summary.holidayExtra);
+    }
+
+    function balanceLabel(summary) {
+      if (summary.isHoliday) return "Feriado: sem horas a menos";
+      if (summary.deficit > 0) return `Horas a menos: ${minutesToText(summary.deficit)}`;
+      return `Saldo: ${signedMinutesToText(summary.balance)}`;
     }
 
     function localDateTime(day, time) {
@@ -897,8 +974,9 @@
         input.value = record ? timeText(parseRecordDate(record)) : "";
       });
 
+      document.getElementById("manualHoliday").checked = summary.isHoliday;
       document.getElementById("manualDaySummary").textContent =
-        `${minutesToText(summary.worked)} trabalhadas · ${minutesToText(summary.extra)} extra · ${money.format(extraValue(summary.extra))}`;
+        `${minutesToText(summary.worked)} trabalhadas · ${balanceLabel(summary)} · ${money.format(totalExtraValue(summary))}`;
     }
 
     function clearManualForm() {
@@ -906,6 +984,7 @@
       typeOrder.forEach(type => {
         document.querySelector(`[data-manual-type="${type}"]`).value = "";
       });
+      document.getElementById("manualHoliday").checked = false;
       fillManualForm(document.getElementById("manualDate").value);
     }
 
@@ -920,6 +999,8 @@
       const remaining = state.records.filter(record => {
         return recordDayKey(record) !== day || !typeOrder.includes(record.type);
       });
+      const isHoliday = document.getElementById("manualHoliday").checked;
+      const hadHolidayMeta = Boolean(state.dayMeta[day]?.holiday);
 
       const manualRecords = typeOrder
         .map(type => {
@@ -937,14 +1018,16 @@
         })
         .filter(Boolean);
 
-      if (!manualRecords.length) {
+      if (!manualRecords.length && !isHoliday && !hadHolidayMeta) {
         showToast("Informe pelo menos um horário.");
         return;
       }
 
       state.records = [...remaining, ...manualRecords]
         .sort((a, b) => new Date(a.at) - new Date(b.at));
+      state.dayMeta[day] = { ...(state.dayMeta[day] || {}), holiday: isHoliday };
       saveRecords();
+      saveDayMeta();
       document.getElementById("historyDate").value = day;
       render();
       fillManualForm(day);
@@ -1009,23 +1092,33 @@
       renderLastPunches(summary.records);
       document.getElementById("standardDay").textContent = standardLabelFor(today);
       document.getElementById("todayWorked").textContent = minutesToText(summary.worked);
-      document.getElementById("todayExtra").textContent = minutesToText(summary.extra);
+      document.getElementById("todayExtra").textContent = minutesToText(summary.regularExtra);
       document.getElementById("todayPunchCount").textContent = String(
         typeOrder.filter(type => summary.records.some(record => record.type === type)).length
       );
-      document.getElementById("todayExtraValue").textContent = money.format(extraValue(summary.extra));
+      document.getElementById("todayExtraValue").textContent = money.format(extraValue(summary.regularExtra));
+      const balance = document.getElementById("todayBalance");
+      balance.textContent = balanceLabel(summary);
+      balance.classList.toggle("negative", summary.deficit > 0);
+      balance.classList.toggle("positive", summary.deficit === 0);
+      document.getElementById("todayHolidayWorked").textContent = minutesToText(summary.holidayExtra);
+      document.getElementById("todayHolidayValue").textContent = money.format(holidayValue(summary.holidayExtra));
     }
 
     function renderPayments() {
       const now = new Date();
       const monthSummaries = summariesForKeys(currentMonthKeys(now));
-      const monthExtra = monthSummaries.reduce((sum, item) => sum + item.extra, 0);
+      const monthExtra = monthSummaries.reduce((sum, item) => sum + item.regularExtra, 0);
+      const monthHoliday = monthSummaries.reduce((sum, item) => sum + item.holidayExtra, 0);
       const extraTotal = extraValue(monthExtra);
+      const holidayTotal = holidayValue(monthHoliday);
       document.getElementById("baseSalary").textContent = money.format(BASE_SALARY);
       document.getElementById("monthlyBonus").textContent = money.format(MONTHLY_BONUS);
       document.getElementById("monthExtra").textContent = minutesToText(monthExtra);
       document.getElementById("monthExtraValue").textContent = money.format(extraTotal);
-      document.getElementById("monthEstimatedTotal").textContent = money.format(BASE_SALARY + MONTHLY_BONUS + extraTotal);
+      document.getElementById("monthHolidayWorked").textContent = minutesToText(monthHoliday);
+      document.getElementById("monthHolidayValue").textContent = money.format(holidayTotal);
+      document.getElementById("monthEstimatedTotal").textContent = money.format(BASE_SALARY + MONTHLY_BONUS + extraTotal + holidayTotal);
       document.getElementById("monthLabel").textContent = now.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
     }
 
@@ -1051,11 +1144,11 @@
 
       summaries.forEach(item => {
         worked += item.worked;
-        extra += item.extra;
+        extra += item.regularExtra + item.holidayExtra;
         container.appendChild(summaryRow(
           shortDateFmt.format(item.date),
-          `${minutesToText(item.worked)} trabalhadas · ${item.records.length} registros`,
-          `${minutesToText(item.extra)} extra`
+          `${minutesToText(item.worked)} trabalhadas · ${balanceLabel(item)} · ${item.records.length} registros`,
+          `${minutesToText(item.regularExtra + item.holidayExtra)} extra`
         ));
       });
 
@@ -1074,14 +1167,16 @@
       const selectedMonth = selector.value || monthKey(new Date());
       state.archiveMonth = selectedMonth;
       const summaries = summariesForKeys(keysForMonth(selectedMonth));
-      const daysWithRecords = summaries.filter(item => item.records.length);
+      const daysWithRecords = summaries.filter(item => item.records.length || item.isHoliday);
       const worked = summaries.reduce((sum, item) => sum + item.worked, 0);
-      const extra = summaries.reduce((sum, item) => sum + item.extra, 0);
+      const extra = summaries.reduce((sum, item) => sum + item.regularExtra, 0);
+      const holiday = summaries.reduce((sum, item) => sum + item.holidayExtra, 0);
       const extraTotal = extraValue(extra);
+      const holidayTotal = holidayValue(holiday);
 
       container.appendChild(summaryRow(
         monthTitle(selectedMonth),
-        `${daysWithRecords.length} dias com registros`,
+        `${daysWithRecords.length} dias com registros ou feriado marcado`,
         `${daysWithRecords.reduce((sum, item) => sum + item.records.length, 0)} pontos`
       ));
       container.appendChild(summaryRow(
@@ -1094,13 +1189,19 @@
         "Jornada padrão considerada por dia útil",
         minutesToText(extra)
       ));
+      container.appendChild(summaryRow(
+        "Horas trabalhadas em feriado",
+        "Pagas com adicional de 100%",
+        minutesToText(holiday)
+      ));
       container.appendChild(summaryRow("Valor total das horas extras", "Calculado somente sobre o salário-base", money.format(extraTotal)));
+      container.appendChild(summaryRow("Valor das horas de feriado", "Hora de feriado vale 2x a hora normal", money.format(holidayTotal)));
       container.appendChild(summaryRow("Salário-base", "Valor mensal", money.format(BASE_SALARY)));
       container.appendChild(summaryRow("Bônus", "Valor mensal separado", money.format(MONTHLY_BONUS)));
       container.appendChild(summaryRow(
         "Total estimado do mês",
-        "Salário-base + bônus + horas extras",
-        money.format(BASE_SALARY + MONTHLY_BONUS + extraTotal)
+        "Salário-base + bônus + horas extras + feriados",
+        money.format(BASE_SALARY + MONTHLY_BONUS + extraTotal + holidayTotal)
       ));
 
       if (!daysWithRecords.length) {
@@ -1121,8 +1222,8 @@
           .join(" · ");
         container.appendChild(summaryRow(
           shortDateFmt.format(item.date),
-          points,
-          `${minutesToText(item.worked)} · ${minutesToText(item.extra)} extra`
+          `${item.isHoliday ? "Feriado · " : ""}${points} · ${balanceLabel(item)}`,
+          `${minutesToText(item.worked)} · ${minutesToText(item.regularExtra + item.holidayExtra)} extra`
         ));
       });
     }
@@ -1141,11 +1242,11 @@
       dayRow.className = "row";
       dayRow.innerHTML = `
         <div class="row-main">
-          <strong>${shortDateFmt.format(summary.date)}</strong>
-          <span>${minutesToText(summary.worked)} trabalhadas · ${minutesToText(summary.extra)} extra · ${money.format(extraValue(summary.extra))}</span>
+          <strong>${shortDateFmt.format(summary.date)}${summary.isHoliday ? " · Feriado" : ""}</strong>
+          <span>${minutesToText(summary.worked)} trabalhadas · ${balanceLabel(summary)} · ${money.format(totalExtraValue(summary))}</span>
         </div>
         <div class="day-actions">
-          <span class="row-value">${records.length} registros</span>
+          <span class="row-value ${summary.deficit > 0 ? "negative" : ""}">${summary.deficit > 0 ? `Horas a menos: ${minutesToText(summary.deficit)}` : `${minutesToText(summary.regularExtra + summary.holidayExtra)} extra`}</span>
           <button class="small-btn" type="button" data-edit-day="${selected}">${records.length ? "Editar horários" : "Adicionar horários"}</button>
         </div>
       `;
@@ -1192,11 +1293,11 @@
         row.className = "row";
         row.innerHTML = `
           <div class="row-main">
-            <strong>${shortDateFmt.format(item.date)}</strong>
-            <span>${minutesToText(item.worked)} trabalhadas · ${minutesToText(item.extra)} extra · ${item.records.length} registros</span>
+            <strong>${shortDateFmt.format(item.date)}${item.isHoliday ? " · Feriado" : ""}</strong>
+            <span>${minutesToText(item.worked)} trabalhadas · ${balanceLabel(item)} · ${item.records.length} registros</span>
           </div>
           <div class="day-actions">
-            <span class="row-value">${money.format(extraValue(item.extra))}</span>
+            <span class="row-value ${item.deficit > 0 ? "negative" : ""}">${item.deficit > 0 ? `Horas a menos: ${minutesToText(item.deficit)}` : money.format(totalExtraValue(item))}</span>
             <button class="small-btn" type="button" data-edit-day="${day}">Editar horários</button>
           </div>
         `;
