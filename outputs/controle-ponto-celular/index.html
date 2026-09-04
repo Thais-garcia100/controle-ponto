@@ -850,6 +850,10 @@
       return [...dayRecords].reverse().find(record => record.type === type);
     }
 
+    function isWorkdayComplete(dayRecords) {
+      return Boolean(latestByType(dayRecords, "entrada") && latestByType(dayRecords, "saida"));
+    }
+
     function dailyWorkedMinutes(dayRecords) {
       const byType = Object.fromEntries(
         typeOrder.map(type => [type, latestByType(dayRecords, type)])
@@ -879,12 +883,13 @@
       const worked = dailyWorkedMinutes(records);
       const expected = standardMinutesFor(date);
       const isHoliday = Boolean(state.dayMeta[key]?.holiday);
+      const isComplete = isWorkdayComplete(records);
       const balance = isHoliday ? worked : worked - expected;
       const regularExtra = isHoliday ? 0 : Math.max(0, balance);
       const holidayExtra = isHoliday ? worked : 0;
-      const deficit = isHoliday ? 0 : Math.max(0, expected - worked);
+      const deficit = !isHoliday && isComplete && expected > 0 ? Math.max(0, expected - worked) : 0;
       const extra = regularExtra;
-      return { key, date, records, worked, expected, extra, regularExtra, holidayExtra, deficit, balance, isHoliday };
+      return { key, date, records, worked, expected, extra, regularExtra, holidayExtra, deficit, balance, isHoliday, isComplete };
     }
 
     function summariesForKeys(keys) {
@@ -953,6 +958,7 @@
     function balanceLabel(summary) {
       if (summary.isHoliday) return "Feriado: sem horas a menos";
       if (summary.deficit > 0) return `Horas a menos: ${minutesToText(summary.deficit)}`;
+      if (!summary.isComplete && summary.expected > 0) return "Jornada em aberto";
       return `Saldo: ${signedMinutesToText(summary.balance)}`;
     }
 
@@ -975,8 +981,10 @@
       });
 
       document.getElementById("manualHoliday").checked = summary.isHoliday;
-      document.getElementById("manualDaySummary").textContent =
+      const manualSummary = document.getElementById("manualDaySummary");
+      manualSummary.textContent =
         `${minutesToText(summary.worked)} trabalhadas · ${balanceLabel(summary)} · ${money.format(totalExtraValue(summary))}`;
+      manualSummary.classList.toggle("negative", summary.deficit > 0);
     }
 
     function clearManualForm() {
@@ -1122,7 +1130,7 @@
       document.getElementById("monthLabel").textContent = now.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
     }
 
-    function summaryRow(title, subtitle, value) {
+    function summaryRow(title, subtitle, value, valueClass = "") {
       const row = document.createElement("div");
       row.className = "row";
       row.innerHTML = `
@@ -1130,7 +1138,7 @@
           <strong>${title}</strong>
           <span>${subtitle}</span>
         </div>
-        <div class="row-value">${value}</div>
+        <div class="row-value ${valueClass}">${value}</div>
       `;
       return row;
     }
@@ -1148,7 +1156,8 @@
         container.appendChild(summaryRow(
           shortDateFmt.format(item.date),
           `${minutesToText(item.worked)} trabalhadas · ${balanceLabel(item)} · ${item.records.length} registros`,
-          `${minutesToText(item.regularExtra + item.holidayExtra)} extra`
+          item.deficit > 0 ? `Horas a menos: ${minutesToText(item.deficit)}` : `${minutesToText(item.regularExtra + item.holidayExtra)} extra`,
+          item.deficit > 0 ? "negative" : ""
         ));
       });
 
@@ -1223,7 +1232,8 @@
         container.appendChild(summaryRow(
           shortDateFmt.format(item.date),
           `${item.isHoliday ? "Feriado · " : ""}${points} · ${balanceLabel(item)}`,
-          `${minutesToText(item.worked)} · ${minutesToText(item.regularExtra + item.holidayExtra)} extra`
+          item.deficit > 0 ? `Horas a menos: ${minutesToText(item.deficit)}` : `${minutesToText(item.worked)} · ${minutesToText(item.regularExtra + item.holidayExtra)} extra`,
+          item.deficit > 0 ? "negative" : ""
         ));
       });
     }
