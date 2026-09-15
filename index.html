@@ -375,6 +375,16 @@
       letter-spacing: 0;
     }
 
+    .backup-actions {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .hidden-input {
+      display: none;
+    }
+
     .time-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -519,7 +529,8 @@
       }
 
       .time-grid,
-      .form-actions {
+      .form-actions,
+      .backup-actions {
         grid-template-columns: 1fr;
       }
 
@@ -719,6 +730,19 @@
         </section>
       </div>
     </div>
+
+    <section class="section">
+      <div class="section-title">
+        <h2>Backup dos dados</h2>
+        <span class="hint">Cópia local em JSON</span>
+      </div>
+      <div class="backup-actions">
+        <button class="primary-btn" id="exportBackup" type="button">Exportar backup</button>
+        <button class="small-btn" id="importBackup" type="button">Importar backup</button>
+        <button class="small-btn" id="exportCsv" type="button">Exportar CSV</button>
+      </div>
+      <input class="hidden-input" id="backupFile" type="file" accept="application/json,.json">
+    </section>
   </main>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -1048,6 +1072,123 @@
       toast.classList.add("show");
       window.clearTimeout(showToast.timer);
       showToast.timer = window.setTimeout(() => toast.classList.remove("show"), 2200);
+    }
+
+    function downloadTextFile(filename, content, type) {
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function exportBackup() {
+      const now = new Date();
+      const backup = {
+        formatVersion: 1,
+        app: "controle-ponto",
+        createdAt: now.toISOString(),
+        storageKeys: {
+          records: STORAGE_KEY,
+          dayMeta: DAY_META_KEY
+        },
+        data: {
+          records: state.records,
+          dayMeta: state.dayMeta
+        }
+      };
+
+      downloadTextFile(
+        `controle-ponto-backup-${dateKey(now)}.json`,
+        JSON.stringify(backup, null, 2),
+        "application/json"
+      );
+      showToast("Backup JSON exportado.");
+    }
+
+    function validateBackup(backup) {
+      if (!backup || typeof backup !== "object") return false;
+      if (backup.formatVersion !== 1) return false;
+      if (!backup.data || typeof backup.data !== "object") return false;
+      if (!Array.isArray(backup.data.records)) return false;
+      if (!backup.data.dayMeta || typeof backup.data.dayMeta !== "object" || Array.isArray(backup.data.dayMeta)) return false;
+      return true;
+    }
+
+    function importBackupFile(file) {
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.addEventListener("load", () => {
+        try {
+          const backup = JSON.parse(String(reader.result || ""));
+          if (!validateBackup(backup)) {
+            showToast("Arquivo de backup inválido.");
+            return;
+          }
+
+          const confirmed = confirm("Restaurar este backup? Os dados locais atuais serão substituídos pelos dados válidos do arquivo.");
+          if (!confirmed) return;
+
+          state.records = backup.data.records;
+          state.dayMeta = backup.data.dayMeta;
+          saveRecords();
+          saveDayMeta();
+          render();
+          showToast("Backup restaurado com sucesso.");
+        } catch {
+          showToast("Arquivo de backup inválido.");
+        } finally {
+          document.getElementById("backupFile").value = "";
+        }
+      });
+      reader.addEventListener("error", () => {
+        showToast("Não foi possível ler o arquivo.");
+        document.getElementById("backupFile").value = "";
+      });
+      reader.readAsText(file);
+    }
+
+    function csvValue(value) {
+      const text = String(value ?? "");
+      return `"${text.replace(/"/g, '""')}"`;
+    }
+
+    function exportCsv() {
+      const header = ["data", "tipo", "descricao", "horario", "data_hora_iso", "manual", "feriado"];
+      const rows = state.records
+        .slice()
+        .sort((a, b) => new Date(a.at) - new Date(b.at))
+        .map(record => {
+          const at = parseRecordDate(record);
+          const day = recordDayKey(record);
+          return [
+            day,
+            record.type,
+            labels[record.type] || record.type,
+            timeText(at),
+            record.at,
+            record.manual ? "sim" : "não",
+            state.dayMeta[day]?.holiday ? "sim" : "não"
+          ];
+        });
+
+      const recorded = new Set(rows.map(row => row[0]));
+      Object.keys(state.dayMeta)
+        .filter(day => state.dayMeta[day]?.holiday && !recorded.has(day))
+        .sort()
+        .forEach(day => rows.push([day, "feriado", "Feriado sem registros", "", "", "", "sim"]));
+
+      const csv = [header, ...rows]
+        .map(row => row.map(csvValue).join(","))
+        .join("\n");
+
+      downloadTextFile(`controle-ponto-registros-${dateKey(new Date())}.csv`, csv, "text/csv;charset=utf-8");
+      showToast("CSV exportado para consulta.");
     }
 
     function addRecord(type) {
@@ -1385,6 +1526,18 @@
       render();
       showToast("Todos os registros foram apagados.");
     });
+
+    document.getElementById("exportBackup").addEventListener("click", exportBackup);
+
+    document.getElementById("importBackup").addEventListener("click", () => {
+      document.getElementById("backupFile").click();
+    });
+
+    document.getElementById("backupFile").addEventListener("change", event => {
+      importBackupFile(event.target.files?.[0]);
+    });
+
+    document.getElementById("exportCsv").addEventListener("click", exportCsv);
 
     syncManualDate(dateKey(new Date()));
     render();
