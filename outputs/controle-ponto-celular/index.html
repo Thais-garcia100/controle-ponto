@@ -27,6 +27,7 @@
       --beige: #e4dac6;
       --beige-soft: #f7f1e8;
       --negative: #8f2441;
+      --rose: #8f2441;
       --shadow: 0 14px 34px rgba(73, 42, 49, .08);
       --soft-shadow: 0 6px 18px rgba(73, 42, 49, .055);
     }
@@ -330,9 +331,9 @@
     }
 
     .saida {
-      background: linear-gradient(135deg, var(--carmine), var(--wine));
+      background: linear-gradient(135deg, #e4a0af, #9f3a57);
       color: #fff;
-      border-color: var(--wine);
+      border-color: #b95f76;
     }
 
     .stats {
@@ -425,6 +426,64 @@
       border-color: #edcad3;
     }
 
+    .month-grid,
+    .finance-grid,
+    .time-mini-grid {
+      display: grid;
+      gap: 8px;
+    }
+
+    .month-grid,
+    .finance-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .time-mini-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin-top: 10px;
+    }
+
+    .mini-metric,
+    .time-mini {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fffaf7;
+      padding: 10px;
+      min-width: 0;
+    }
+
+    .mini-metric span,
+    .time-mini span {
+      display: block;
+      color: var(--muted);
+      font-size: .72rem;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .mini-metric b,
+    .time-mini b {
+      display: block;
+      color: var(--ink);
+      font-size: 1rem;
+      overflow-wrap: anywhere;
+    }
+
+    .finance-grid {
+      margin-top: 8px;
+    }
+
+    .finance-grid .total-finance {
+      grid-column: 1 / -1;
+      background: linear-gradient(135deg, var(--wine), #9b2f50);
+      border-color: var(--wine);
+    }
+
+    .finance-grid .total-finance span,
+    .finance-grid .total-finance b {
+      color: #fff;
+    }
+
     .row {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
@@ -456,6 +515,10 @@
       color: var(--sage-dark);
       font-weight: 800;
       white-space: nowrap;
+    }
+
+    .row-value:empty {
+      display: none;
     }
 
     .row-value.negative,
@@ -1066,6 +1129,7 @@
                 <span class="hint">Usa apenas Entrada e Saída</span>
               </label>
               <span class="hint" id="manualDaySummary">Escolha uma data para preencher ou corrigir.</span>
+              <div class="list" id="manualRecordActions"></div>
               <div class="form-actions">
                 <button class="primary-btn" type="submit">Salvar horários</button>
                 <button class="small-btn secondary" id="cancelManualForm" type="button">Cancelar</button>
@@ -1500,6 +1564,34 @@
       return parts.join(" · ");
     }
 
+    function primaryBadgeHtml(summary) {
+      const badge = dayBadges(summary)[0];
+      if (!badge) return "";
+      const [label, type] = badge;
+      return `<div class="badge-line"><span class="badge ${type}">${label}</span></div>`;
+    }
+
+    function timeGridHtml(records) {
+      return `<div class="time-mini-grid">${typeOrder.map(type => {
+        const record = latestByType(records, type);
+        return `
+          <div class="time-mini">
+            <span>${labels[type]}</span>
+            <b>${record ? timeText(parseRecordDate(record)) : "--:--"}</b>
+          </div>
+        `;
+      }).join("")}</div>`;
+    }
+
+    function metricCardHtml(label, value, className = "") {
+      return `
+        <div class="mini-metric ${className}">
+          <span>${label}</span>
+          <b>${value}</b>
+        </div>
+      `;
+    }
+
     function localDateTime(day, time) {
       return new Date(`${day}T${time}:00`);
     }
@@ -1552,6 +1644,27 @@
       manualSummary.textContent =
         `${daySummaryText(summary)} · ${money.format(totalExtraValue(summary))}`;
       manualSummary.classList.toggle("negative", summary.deficit > 0);
+      renderManualRecordActions(summary.records);
+    }
+
+    function renderManualRecordActions(records) {
+      const container = document.getElementById("manualRecordActions");
+      container.innerHTML = "";
+      records.forEach(record => {
+        const row = document.createElement("div");
+        row.className = "row";
+        row.innerHTML = `
+          <div class="row-main">
+            <strong>${labels[record.type]}</strong>
+            <span>${dateFmt.format(parseRecordDate(record))}</span>
+          </div>
+          <div class="day-actions">
+            <span class="row-value">${timeText(parseRecordDate(record))}</span>
+            <button class="small-btn danger" type="button" data-delete="${record.id}" aria-label="Apagar registro">Apagar</button>
+          </div>
+        `;
+        container.appendChild(row);
+      });
     }
 
     function clearManualForm() {
@@ -1861,10 +1974,10 @@
         extra += item.regularExtra + item.holidayExtra;
         container.appendChild(summaryRow(
           `${shortDateFmt.format(item.date)}${dayTitleSuffix(item)}`,
-          `${dayCompactSubtitle(item)} · ${item.records.length} registros`,
-          highlightValueLabel(item),
+          item.isFuture ? "Próximo dia" : `${minutesToText(item.worked)} trabalhadas · ${item.records.length} registros`,
+          "",
           summaryValueClass(item),
-          badgesHtml(item)
+          primaryBadgeHtml(item)
         ));
       });
 
@@ -1891,41 +2004,36 @@
       const extraTotal = extraValue(extra);
       const holidayTotal = holidayValue(holiday);
 
-      container.appendChild(summaryRow(
-        monthTitle(selectedMonth),
-        `${daysWithRecords.length} dias com registros ou feriado marcado`,
-        `${daysWithRecords.reduce((sum, item) => sum + item.records.length, 0)} pontos`
-      ));
-      container.appendChild(summaryRow(
-        "Horas trabalhadas",
-        "Total registrado no mês",
-        minutesToText(worked)
-      ));
-      container.appendChild(summaryRow(
-        "Horas extras acumuladas",
-        "Jornada padrão considerada por dia útil",
-        minutesToText(extra)
-      ));
-      container.appendChild(summaryRow(
-        "Horas trabalhadas em feriado",
-        "Pagas com adicional de 100%",
-        minutesToText(holiday)
-      ));
-      container.appendChild(summaryRow(
-        "Horas a menos",
-        "Somente jornadas concluídas",
-        minutesToText(deficit),
-        deficit > 0 ? "negative" : ""
-      ));
-      container.appendChild(summaryRow("Valor total das horas extras", "Calculado somente sobre o salário-base", money.format(extraTotal)));
-      container.appendChild(summaryRow("Valor das horas de feriado", "Hora de feriado vale 2x a hora normal", money.format(holidayTotal)));
-      container.appendChild(summaryRow("Salário-base", "Valor mensal", money.format(BASE_SALARY)));
-      container.appendChild(summaryRow("Bônus", "Valor mensal separado", money.format(MONTHLY_BONUS)));
-      container.appendChild(summaryRow(
-        "Total estimado do mês",
-        "Salário-base + bônus + horas extras + feriados",
-        money.format(BASE_SALARY + MONTHLY_BONUS + extraTotal + holidayTotal)
-      ));
+      const monthIntro = document.createElement("div");
+      monthIntro.className = "row";
+      monthIntro.innerHTML = `
+        <div class="row-main">
+          <strong>${monthTitle(selectedMonth)}</strong>
+          <span>${daysWithRecords.length} dias com registros ou exceções · ${daysWithRecords.reduce((sum, item) => sum + item.records.length, 0)} pontos</span>
+        </div>
+      `;
+      container.appendChild(monthIntro);
+
+      const monthGrid = document.createElement("div");
+      monthGrid.className = "month-grid";
+      monthGrid.innerHTML = [
+        metricCardHtml("Horas trabalhadas", minutesToText(worked)),
+        metricCardHtml("Horas extras", minutesToText(extra), "positive"),
+        metricCardHtml("Feriado 100%", minutesToText(holiday), "holiday"),
+        metricCardHtml("Horas a menos", minutesToText(deficit), deficit > 0 ? "negative" : "")
+      ].join("");
+      container.appendChild(monthGrid);
+
+      const financeGrid = document.createElement("div");
+      financeGrid.className = "finance-grid";
+      financeGrid.innerHTML = [
+        metricCardHtml("Valor extras", money.format(extraTotal), "positive"),
+        metricCardHtml("Valor feriado", money.format(holidayTotal), "holiday"),
+        metricCardHtml("Salário-base", money.format(BASE_SALARY)),
+        metricCardHtml("Bônus", money.format(MONTHLY_BONUS)),
+        metricCardHtml("Total estimado", money.format(BASE_SALARY + MONTHLY_BONUS + extraTotal + holidayTotal), "total-finance")
+      ].join("");
+      container.appendChild(financeGrid);
 
       if (!daysWithRecords.length) {
         const empty = document.createElement("div");
@@ -1945,10 +2053,10 @@
           .join(" · ");
         container.appendChild(summaryRow(
           `${shortDateFmt.format(item.date)}${dayTitleSuffix(item)}`,
-          `${points ? `${points} · ` : ""}${dayCompactSubtitle(item)}`,
+          `${points ? `${points} · ` : ""}${item.isFuture ? "Próximo dia" : `${minutesToText(item.worked)} trabalhadas`}`,
           highlightValueLabel(item, true),
           summaryValueClass(item),
-          badgesHtml(item)
+          primaryBadgeHtml(item)
         ));
       });
     }
@@ -1968,8 +2076,9 @@
       dayRow.innerHTML = `
         <div class="row-main">
           <strong>${shortDateFmt.format(summary.date)}${dayTitleSuffix(summary)}</strong>
-          <span>${dayCompactSubtitle(summary)} · ${money.format(totalExtraValue(summary))}</span>
-          ${badgesHtml(summary)}
+          <span>${summary.isFuture ? "Próximo dia" : `${minutesToText(summary.worked)} trabalhadas · ${money.format(totalExtraValue(summary))}`}</span>
+          ${primaryBadgeHtml(summary)}
+          ${timeGridHtml(records)}
         </div>
         <div class="day-actions">
           <span class="row-value ${summaryValueClass(summary)}">${highlightValueLabel(summary)}</span>
@@ -1988,22 +2097,6 @@
         container.appendChild(empty);
         fillManualForm(selected);
       }
-
-      records.forEach(record => {
-        const row = document.createElement("div");
-        row.className = "row";
-        row.innerHTML = `
-          <div class="row-main">
-            <strong>${labels[record.type]}</strong>
-            <span>${dateFmt.format(parseRecordDate(record))}</span>
-          </div>
-          <div class="day-actions">
-            <span class="row-value">${timeText(parseRecordDate(record))}</span>
-            <button class="small-btn danger" type="button" data-delete="${record.id}" aria-label="Apagar registro">Apagar</button>
-          </div>
-        `;
-        container.appendChild(row);
-      });
 
       const archivedDays = recordedDayKeys().filter(day => day !== selected);
       if (archivedDays.length) {
@@ -2113,6 +2206,11 @@
         return;
       }
 
+      const button = event.target.closest("[data-delete]");
+      if (button) deleteRecord(button.dataset.delete);
+    });
+
+    document.getElementById("manualRecordActions").addEventListener("click", event => {
       const button = event.target.closest("[data-delete]");
       if (button) deleteRecord(button.dataset.delete);
     });
