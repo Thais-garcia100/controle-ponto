@@ -1,4 +1,4 @@
-const CACHE_NAME = "controle-ponto-v5";
+const CACHE_NAME = "controle-ponto-v6";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -52,6 +52,47 @@ self.addEventListener("fetch", event => {
         caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
         return response;
       });
+    })
+  );
+});
+
+self.addEventListener("push", event => {
+  let payload = {};
+
+  if (event.data) {
+    try {
+      payload = event.data.json();
+    } catch {
+      payload = { body: event.data.text() };
+    }
+  }
+
+  const title = payload.title || "Controle de Ponto";
+  const options = {
+    body: payload.body || "Lembrete do Controle de Ponto.",
+    icon: "./icon.svg",
+    badge: "./icon.svg",
+    data: {
+      url: payload.url || "./"
+    }
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", event => {
+  event.notification.close();
+
+  const targetUrl = new URL(event.notification.data?.url || "./", self.registration.scope).href;
+
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then(clientList => {
+      const existing = clientList.find(client => client.url.startsWith(self.registration.scope));
+      if (existing) {
+        existing.focus();
+        return existing.navigate ? existing.navigate(targetUrl) : undefined;
+      }
+      return clients.openWindow(targetUrl);
     })
   );
 });

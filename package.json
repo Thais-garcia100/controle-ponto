@@ -2,6 +2,9 @@
   "name": "controle-ponto",
   "version": "1.0.0",
   "private": true,
+  "dependencies": {
+    "web-push": "^3.6.7"
+  },
   "scripts": {
     "start": "python -m http.server 8080"
   }

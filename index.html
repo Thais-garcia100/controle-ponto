@@ -678,6 +678,39 @@
       gap: 8px;
     }
 
+    .notification-actions {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .notification-status {
+      display: grid;
+      gap: 10px;
+    }
+
+    .status-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fff;
+    }
+
+    .status-line span {
+      color: var(--muted);
+      font-size: .82rem;
+      font-weight: 700;
+    }
+
+    .status-line strong {
+      color: var(--wine);
+      text-align: right;
+    }
+
     .hidden-input {
       display: none;
     }
@@ -883,7 +916,8 @@
 
       .time-grid,
       .form-actions,
-      .backup-actions {
+      .backup-actions,
+      .notification-actions {
         grid-template-columns: 1fr;
       }
 
@@ -926,6 +960,7 @@
             <button class="nav-tab tab" data-tab="history" type="button"><span class="icon">◷</span>Histórico</button>
             <button class="nav-tab tab" data-tab="month" type="button"><span class="icon">▦</span>Mês</button>
             <button class="nav-tab tab" data-tab="backup" type="button"><span class="icon">↓</span>Backup dos dados</button>
+            <button class="nav-tab tab" data-tab="notifications" type="button"><span class="icon">!</span>Notificações</button>
           </nav>
         </div>
       </aside>
@@ -1139,6 +1174,31 @@
             <input class="hidden-input" id="backupFile" type="file" accept="application/json,.json">
           </section>
         </section>
+
+        <section class="page" id="panel-notifications">
+          <section class="section">
+            <div class="section-title">
+              <h2>Notificações</h2>
+              <span class="hint">Infraestrutura de push</span>
+            </div>
+            <div class="notification-status">
+              <div class="status-line">
+                <span>Permissão</span>
+                <strong id="notificationPermission">Não ativado</strong>
+              </div>
+              <div class="status-line">
+                <span>Subscription</span>
+                <strong id="notificationSubscription">Inativa</strong>
+              </div>
+            </div>
+            <div class="notification-actions">
+              <button class="primary-btn" id="enableNotifications" type="button">Ativar notificações</button>
+              <button class="small-btn" id="disableNotifications" type="button">Desativar notificações</button>
+              <button class="small-btn secondary" id="sendTestPush" type="button">Push de teste</button>
+            </div>
+            <p class="hint">O pedido de permissão aparece somente após tocar em “Ativar notificações”.</p>
+          </section>
+        </section>
       </div>
     </div>
   </main>
@@ -1148,6 +1208,7 @@
   <script>
     const STORAGE_KEY = "controle-ponto-registros-v1";
     const DAY_META_KEY = "controle-ponto-dias-v1";
+    const PUSH_DEVICE_KEY = "controle-ponto-push-device-v1";
     const BASE_SALARY = 2000;
     const MONTHLY_BONUS = 300;
     const MONTHLY_HOURS = 220;
@@ -1213,6 +1274,132 @@
 
     function saveDayMeta() {
       localStorage.setItem(DAY_META_KEY, JSON.stringify(state.dayMeta));
+    }
+
+    function pushSupported() {
+      return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+    }
+
+    function notificationPermissionLabel() {
+      if (!("Notification" in window)) return "Não ativado";
+      if (Notification.permission === "granted") return "Permitido";
+      if (Notification.permission === "denied") return "Bloqueado";
+      return "Não ativado";
+    }
+
+    function deviceId() {
+      const existing = localStorage.getItem(PUSH_DEVICE_KEY);
+      if (existing) return existing;
+
+      const generated = crypto.randomUUID
+        ? crypto.randomUUID()
+        : `device-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      localStorage.setItem(PUSH_DEVICE_KEY, generated);
+      return generated;
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+      const padding = "=".repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+      const rawData = atob(base64);
+      return Uint8Array.from([...rawData].map(char => char.charCodeAt(0)));
+    }
+
+    async function apiPost(url, payload) {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.ok === false) {
+        throw new Error(data.error || "Não foi possível completar a ação.");
+      }
+      return data;
+    }
+
+    async function getPushSubscription() {
+      if (!pushSupported()) return null;
+      const registration = await navigator.serviceWorker.ready;
+      return registration.pushManager.getSubscription();
+    }
+
+    async function refreshNotificationStatus() {
+      const permission = document.getElementById("notificationPermission");
+      const subscription = document.getElementById("notificationSubscription");
+      const enable = document.getElementById("enableNotifications");
+      const disable = document.getElementById("disableNotifications");
+      const test = document.getElementById("sendTestPush");
+
+      if (!permission || !subscription) return;
+
+      permission.textContent = notificationPermissionLabel();
+
+      if (!pushSupported()) {
+        subscription.textContent = "Indisponível";
+        enable.disabled = true;
+        disable.disabled = true;
+        test.disabled = true;
+        return;
+      }
+
+      const active = Boolean(await getPushSubscription().catch(() => null));
+      subscription.textContent = active ? "Ativa" : "Inativa";
+      enable.disabled = Notification.permission === "denied" || active;
+      disable.disabled = !active;
+      test.disabled = !active;
+    }
+
+    async function activateNotifications() {
+      if (!pushSupported()) {
+        showToast("Notificações push não estão disponíveis neste navegador.");
+        return;
+      }
+
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        await refreshNotificationStatus();
+        showToast(permission === "denied" ? "Permissão bloqueada." : "Permissão não ativada.");
+        return;
+      }
+
+      const keyResponse = await fetch("/api/push/vapid-public-key");
+      const keyData = await keyResponse.json().catch(() => ({}));
+      if (!keyResponse.ok || !keyData.publicKey) {
+        throw new Error(keyData.error || "Chave pública VAPID não configurada.");
+      }
+
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription()
+        || await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(keyData.publicKey)
+        });
+
+      await apiPost("/api/push/subscribe", {
+        deviceId: deviceId(),
+        subscription: subscription.toJSON()
+      });
+
+      await refreshNotificationStatus();
+      showToast("Notificações ativadas.");
+    }
+
+    async function disableNotifications() {
+      const subscription = await getPushSubscription();
+      if (subscription) await subscription.unsubscribe();
+
+      await apiPost("/api/push/unsubscribe", { deviceId: deviceId() });
+      await refreshNotificationStatus();
+      showToast("Notificações desativadas.");
+    }
+
+    async function sendTestPush() {
+      await apiPost("/api/push/test", {
+        deviceId: deviceId(),
+        message: "Push de teste do Controle de Ponto."
+      });
+      showToast("Push de teste enviado.");
     }
 
     function pad(value) {
@@ -2229,13 +2416,37 @@
 
     document.getElementById("exportCsv").addEventListener("click", exportCsv);
 
+    document.getElementById("enableNotifications").addEventListener("click", () => {
+      activateNotifications().catch(error => {
+        showToast(error.message || "Não foi possível ativar notificações.");
+        refreshNotificationStatus();
+      });
+    });
+
+    document.getElementById("disableNotifications").addEventListener("click", () => {
+      disableNotifications().catch(error => {
+        showToast(error.message || "Não foi possível desativar notificações.");
+        refreshNotificationStatus();
+      });
+    });
+
+    document.getElementById("sendTestPush").addEventListener("click", () => {
+      sendTestPush().catch(error => {
+        showToast(error.message || "Não foi possível enviar o push de teste.");
+        refreshNotificationStatus();
+      });
+    });
+
     syncManualDate(dateKey(new Date()));
     render();
+    refreshNotificationStatus();
     window.setInterval(renderClock, 1000);
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+        navigator.serviceWorker.register("./service-worker.js")
+          .then(() => refreshNotificationStatus())
+          .catch(() => {});
       });
     }
   </script>
