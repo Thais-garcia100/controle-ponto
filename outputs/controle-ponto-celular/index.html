@@ -1100,6 +1100,14 @@
       return summary.rule.type === "normal" ? "" : ` · ${summary.ruleLabel}`;
     }
 
+    function highlightValueLabel(summary, includeWorked = false) {
+      if (summary.deficit > 0) return `Horas a menos: ${minutesToText(summary.deficit)}`;
+      if (summary.isHoliday) return `${minutesToText(summary.holidayExtra)} feriado 100%`;
+
+      const extraText = `${minutesToText(summary.regularExtra + summary.holidayExtra)} extra`;
+      return includeWorked ? `${minutesToText(summary.worked)} · ${extraText}` : extraText;
+    }
+
     function localDateTime(day, time) {
       return new Date(`${day}T${time}:00`);
     }
@@ -1442,7 +1450,7 @@
         container.appendChild(summaryRow(
           `${shortDateFmt.format(item.date)}${dayTitleSuffix(item)}`,
           `${daySummaryText(item)} · ${item.records.length} registros`,
-          item.deficit > 0 ? `Horas a menos: ${minutesToText(item.deficit)}` : `${minutesToText(item.regularExtra + item.holidayExtra)} extra`,
+          highlightValueLabel(item),
           item.deficit > 0 ? "negative" : ""
         ));
       });
@@ -1518,7 +1526,7 @@
         container.appendChild(summaryRow(
           `${shortDateFmt.format(item.date)}${dayTitleSuffix(item)}`,
           `${points ? `${points} · ` : ""}${daySummaryText(item)}`,
-          item.deficit > 0 ? `Horas a menos: ${minutesToText(item.deficit)}` : `${minutesToText(item.worked)} · ${minutesToText(item.regularExtra + item.holidayExtra)} extra`,
+          highlightValueLabel(item, true),
           item.deficit > 0 ? "negative" : ""
         ));
       });
@@ -1542,7 +1550,7 @@
           <span>${daySummaryText(summary)} · ${money.format(totalExtraValue(summary))}</span>
         </div>
         <div class="day-actions">
-          <span class="row-value ${summary.deficit > 0 ? "negative" : ""}">${summary.deficit > 0 ? `Horas a menos: ${minutesToText(summary.deficit)}` : `${minutesToText(summary.regularExtra + summary.holidayExtra)} extra`}</span>
+          <span class="row-value ${summary.deficit > 0 ? "negative" : ""}">${highlightValueLabel(summary)}</span>
           <button class="small-btn" type="button" data-edit-day="${selected}">${records.length ? "Editar horários" : "Adicionar horários"}</button>
         </div>
       `;
