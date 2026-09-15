@@ -1462,6 +1462,30 @@
       return extraValue(summary.regularExtra) + holidayValue(summary.holidayExtra);
     }
 
+    function compensatedMonthTotals(summaries) {
+      const worked = summaries.reduce((sum, item) => sum + item.worked, 0);
+      const regularExtraGross = summaries.reduce((sum, item) => sum + item.regularExtra, 0);
+      const deficitGross = summaries.reduce((sum, item) => sum + item.deficit, 0);
+      const holiday = summaries.reduce((sum, item) => sum + item.holidayExtra, 0);
+      const compensated = Math.min(regularExtraGross, deficitGross);
+      const regularExtra = regularExtraGross - compensated;
+      const deficit = deficitGross - compensated;
+      const extraTotal = extraValue(regularExtra);
+      const holidayTotal = holidayValue(holiday);
+      return {
+        worked,
+        regularExtraGross,
+        deficitGross,
+        compensated,
+        regularExtra,
+        deficit,
+        holiday,
+        extraTotal,
+        holidayTotal,
+        estimatedTotal: BASE_SALARY + MONTHLY_BONUS + extraTotal + holidayTotal
+      };
+    }
+
     function balanceLabel(summary) {
       if (summary.isFuture) return "Próximo dia";
       if (summary.isHoliday) return "Feriado: sem horas a menos";
@@ -1902,16 +1926,10 @@
     function renderPayments() {
       const now = new Date();
       const monthSummaries = summariesForKeys(currentMonthKeys(now));
-      const monthWorked = monthSummaries.reduce((sum, item) => sum + item.worked, 0);
-      const monthExtra = monthSummaries.reduce((sum, item) => sum + item.regularExtra, 0);
-      const monthHoliday = monthSummaries.reduce((sum, item) => sum + item.holidayExtra, 0);
-      const monthDeficit = monthSummaries.reduce((sum, item) => sum + item.deficit, 0);
-      const extraTotal = extraValue(monthExtra);
-      const holidayTotal = holidayValue(monthHoliday);
-      const estimatedTotal = BASE_SALARY + MONTHLY_BONUS + extraTotal + holidayTotal;
-      document.getElementById("overviewMonthWorked").textContent = minutesToText(monthWorked);
-      document.getElementById("overviewMonthExtra").textContent = minutesToText(monthExtra);
-      document.getElementById("overviewMonthDeficit").textContent = minutesToText(monthDeficit);
+      const totals = compensatedMonthTotals(monthSummaries);
+      document.getElementById("overviewMonthWorked").textContent = minutesToText(totals.worked);
+      document.getElementById("overviewMonthExtra").textContent = minutesToText(totals.regularExtra);
+      document.getElementById("overviewMonthDeficit").textContent = minutesToText(totals.deficit);
       document.getElementById("monthLabel").textContent = now.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
       const container = document.getElementById("overviewMonthSummary");
@@ -1919,12 +1937,12 @@
       const monthGrid = document.createElement("div");
       monthGrid.className = "month-grid";
       monthGrid.innerHTML = [
-        metricCardHtml("Horas trabalhadas", minutesToText(monthWorked)),
-        metricCardHtml("Horas extras", minutesToText(monthExtra), "positive"),
-        metricCardHtml("Feriado 100%", minutesToText(monthHoliday), "holiday"),
-        metricCardHtml("Horas a menos", minutesToText(monthDeficit), monthDeficit > 0 ? "negative" : ""),
-        metricCardHtml("Valor das extras", money.format(extraTotal), "positive"),
-        metricCardHtml("Total estimado", money.format(estimatedTotal), "total-finance")
+        metricCardHtml("Horas trabalhadas", minutesToText(totals.worked)),
+        metricCardHtml("Horas extras", minutesToText(totals.regularExtra), "positive"),
+        metricCardHtml("Feriado 100%", minutesToText(totals.holiday), "holiday"),
+        metricCardHtml("Horas a menos", minutesToText(totals.deficit), totals.deficit > 0 ? "negative" : ""),
+        metricCardHtml("Valor das extras", money.format(totals.extraTotal), "positive"),
+        metricCardHtml("Total estimado", money.format(totals.estimatedTotal), "total-finance")
       ].join("");
       container.appendChild(monthGrid);
     }
@@ -1978,12 +1996,7 @@
       state.archiveMonth = selectedMonth;
       const summaries = summariesForKeys(keysForMonth(selectedMonth));
       const daysWithRecords = summaries.filter(item => item.records.length || item.isHoliday || item.isHalfDay || item.isNoLunch);
-      const worked = summaries.reduce((sum, item) => sum + item.worked, 0);
-      const extra = summaries.reduce((sum, item) => sum + item.regularExtra, 0);
-      const holiday = summaries.reduce((sum, item) => sum + item.holidayExtra, 0);
-      const deficit = summaries.reduce((sum, item) => sum + item.deficit, 0);
-      const extraTotal = extraValue(extra);
-      const holidayTotal = holidayValue(holiday);
+      const totals = compensatedMonthTotals(summaries);
 
       const monthIntro = document.createElement("div");
       monthIntro.className = "row";
@@ -1998,21 +2011,21 @@
       const monthGrid = document.createElement("div");
       monthGrid.className = "month-grid";
       monthGrid.innerHTML = [
-        metricCardHtml("Horas trabalhadas", minutesToText(worked)),
-        metricCardHtml("Horas extras", minutesToText(extra), "positive"),
-        metricCardHtml("Feriado 100%", minutesToText(holiday), "holiday"),
-        metricCardHtml("Horas a menos", minutesToText(deficit), deficit > 0 ? "negative" : "")
+        metricCardHtml("Horas trabalhadas", minutesToText(totals.worked)),
+        metricCardHtml("Horas extras", minutesToText(totals.regularExtra), "positive"),
+        metricCardHtml("Feriado 100%", minutesToText(totals.holiday), "holiday"),
+        metricCardHtml("Horas a menos", minutesToText(totals.deficit), totals.deficit > 0 ? "negative" : "")
       ].join("");
       container.appendChild(monthGrid);
 
       const financeGrid = document.createElement("div");
       financeGrid.className = "finance-grid";
       financeGrid.innerHTML = [
-        metricCardHtml("Valor extras", money.format(extraTotal), "positive"),
-        metricCardHtml("Valor feriado", money.format(holidayTotal), "holiday"),
+        metricCardHtml("Valor extras", money.format(totals.extraTotal), "positive"),
+        metricCardHtml("Valor feriado", money.format(totals.holidayTotal), "holiday"),
         metricCardHtml("Salário-base", money.format(BASE_SALARY)),
         metricCardHtml("Bônus", money.format(MONTHLY_BONUS)),
-        metricCardHtml("Total estimado", money.format(BASE_SALARY + MONTHLY_BONUS + extraTotal + holidayTotal), "total-finance")
+        metricCardHtml("Total estimado", money.format(totals.estimatedTotal), "total-finance")
       ].join("");
       container.appendChild(financeGrid);
 
