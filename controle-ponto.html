@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Controle de Ponto</title>
-  <meta name="theme-color" content="#2f8d62">
+  <meta name="theme-color" content="#7a1734">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Ponto">
   <link rel="manifest" href="manifest.webmanifest">
@@ -12,20 +12,23 @@
   <style>
     :root {
       color-scheme: light;
-      --bg: #f4f7f6;
+      --bg: #fbf8f4;
       --panel: #ffffff;
-      --panel-soft: #eef5f2;
-      --ink: #17231f;
-      --muted: #6a7773;
-      --line: #dde7e3;
-      --green: #2f8d62;
-      --green-dark: #1f6c49;
-      --blue: #316f9f;
-      --amber: #ad6b2a;
-      --rose: #b14d5d;
-      --violet: #7162aa;
-      --shadow: 0 16px 38px rgba(23, 35, 31, .10);
-      --soft-shadow: 0 8px 22px rgba(23, 35, 31, .07);
+      --panel-soft: #f3e7ea;
+      --ink: #241b1f;
+      --muted: #756a68;
+      --line: #eadfd8;
+      --wine: #7a1734;
+      --wine-dark: #521024;
+      --carmine: #da849b;
+      --carmine-soft: #f3e7ea;
+      --sage: #c7d784;
+      --sage-dark: #52621d;
+      --beige: #e4dac6;
+      --beige-soft: #f7f1e8;
+      --negative: #8f2441;
+      --shadow: 0 14px 34px rgba(73, 42, 49, .08);
+      --soft-shadow: 0 6px 18px rgba(73, 42, 49, .055);
     }
 
     * {
@@ -35,10 +38,14 @@
     body {
       margin: 0;
       min-height: 100vh;
-      background: linear-gradient(180deg, #fbfcfa 0%, var(--bg) 100%);
+      background: linear-gradient(180deg, #fffdf9 0%, var(--bg) 100%);
       color: var(--ink);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       line-height: 1.35;
+    }
+
+    body.drawer-open {
+      overflow: hidden;
     }
 
     button, input, select {
@@ -48,7 +55,7 @@
     .app {
       width: min(1220px, 100%);
       margin: 0 auto;
-      padding: 14px clamp(14px, 3vw, 28px) 32px;
+      padding: 10px clamp(14px, 3vw, 28px) 32px;
     }
 
     header {
@@ -56,11 +63,11 @@
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      padding: 6px 0 14px;
+      padding: 6px 0 12px;
       position: sticky;
       top: 0;
       z-index: 10;
-      background: rgba(244, 247, 246, .92);
+      background: rgba(251, 248, 244, .92);
       backdrop-filter: blur(16px);
     }
 
@@ -74,6 +81,7 @@
       margin: 0;
       font-size: clamp(1.35rem, 5vw, 2.15rem);
       letter-spacing: 0;
+      color: var(--wine);
     }
 
     .today-line {
@@ -82,7 +90,23 @@
       font-size: .96rem;
     }
 
+    .menu-toggle,
+    .drawer-close {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel);
+      color: var(--wine);
+      cursor: pointer;
+      display: none;
+      font-weight: 900;
+      min-height: 42px;
+      min-width: 42px;
+      padding: 8px 10px;
+      box-shadow: var(--soft-shadow);
+    }
+
     .clock {
+      display: none;
       min-width: 96px;
       padding: 10px 12px;
       border: 1px solid var(--line);
@@ -124,12 +148,13 @@
     .section {
       border: 1px solid var(--line);
       border-radius: 22px;
-      background: rgba(255, 255, 255, .88);
+      background: rgba(255, 255, 255, .92);
       box-shadow: var(--shadow);
     }
 
     .drawer-card {
       padding: 14px;
+      background: linear-gradient(180deg, #fff, var(--carmine-soft));
     }
 
     .drawer-title {
@@ -140,6 +165,7 @@
 
     .drawer-title strong {
       font-size: 1rem;
+      color: var(--wine);
     }
 
     .drawer-title span {
@@ -172,19 +198,19 @@
       width: 26px;
       height: 26px;
       border-radius: 9px;
-      background: var(--panel-soft);
+      background: #fff8f9;
       display: inline-grid;
       place-items: center;
       flex: 0 0 auto;
     }
 
     .nav-tab.active {
-      background: #eaf4ef;
-      color: var(--green-dark);
+      background: #fff8f9;
+      color: var(--wine);
     }
 
     .nav-tab.active .icon {
-      background: var(--green);
+      background: var(--wine);
       color: #fff;
     }
 
@@ -214,7 +240,7 @@
     }
 
     .section {
-      padding: 16px;
+      padding: 15px;
     }
 
     .section-title {
@@ -229,6 +255,7 @@
       margin: 0;
       font-size: 1.04rem;
       letter-spacing: 0;
+      color: var(--wine);
     }
 
     .hint {
@@ -239,14 +266,14 @@
     .punches {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
+      gap: 10px;
     }
 
     .punch-btn {
-      min-height: 102px;
-      border: 0;
-      border-radius: 20px;
-      color: #fff;
+      min-height: 92px;
+      border: 1px solid transparent;
+      border-radius: 18px;
+      color: var(--ink);
       cursor: pointer;
       display: flex;
       flex-direction: column;
@@ -254,7 +281,7 @@
       justify-content: space-between;
       padding: 16px;
       text-align: left;
-      box-shadow: 0 12px 24px rgba(31, 45, 41, .14);
+      box-shadow: var(--soft-shadow);
       transition: transform .16s ease, filter .16s ease;
     }
 
@@ -287,10 +314,26 @@
       font-size: .82rem;
     }
 
-    .entrada { background: linear-gradient(135deg, #2f8d62, #277754); }
-    .almoco-saida { background: linear-gradient(135deg, #b86e1f, #9a5c1b); }
-    .almoco-volta { background: linear-gradient(135deg, #3478a8, #2c6388); }
-    .saida { background: linear-gradient(135deg, #b64f5e, #914251); }
+    .entrada {
+      background: linear-gradient(135deg, #eef4cf, var(--sage));
+      border-color: #b8ca6b;
+    }
+
+    .almoco-saida {
+      background: linear-gradient(135deg, #f7f1e8, var(--beige));
+      border-color: #d7c9b0;
+    }
+
+    .almoco-volta {
+      background: linear-gradient(135deg, #fff8f9, var(--carmine-soft));
+      border-color: #e8c9d1;
+    }
+
+    .saida {
+      background: linear-gradient(135deg, var(--carmine), var(--wine));
+      color: #fff;
+      border-color: var(--wine);
+    }
 
     .stats {
       display: grid;
@@ -299,11 +342,11 @@
     }
 
     .stat {
-      min-height: 104px;
-      padding: 14px;
+      min-height: 88px;
+      padding: 13px;
       border: 1px solid var(--line);
       border-radius: 18px;
-      background: linear-gradient(180deg, #fff, #fbfdfc);
+      background: linear-gradient(180deg, #fff, #fffaf7);
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -313,7 +356,7 @@
 
     .stat b {
       display: block;
-      font-size: clamp(1.25rem, 6vw, 1.65rem);
+      font-size: clamp(1.12rem, 5.5vw, 1.55rem);
       letter-spacing: 0;
       overflow-wrap: anywhere;
     }
@@ -321,6 +364,17 @@
     .stat span {
       color: var(--muted);
       font-size: .82rem;
+    }
+
+    .total-stat {
+      background: linear-gradient(135deg, var(--wine), #9b2f50);
+      border-color: var(--wine);
+      color: #fff;
+    }
+
+    .total-stat span,
+    .total-stat b {
+      color: #fff;
     }
 
     .wide {
@@ -332,14 +386,53 @@
       gap: 10px;
     }
 
+    .compact-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 9px;
+    }
+
+    .compact-card {
+      min-height: 78px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #fff;
+      display: grid;
+      align-content: space-between;
+      gap: 8px;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .compact-card span {
+      color: var(--muted);
+      font-size: .76rem;
+      font-weight: 800;
+    }
+
+    .compact-card b {
+      font-size: clamp(1.05rem, 5vw, 1.38rem);
+      color: var(--ink);
+    }
+
+    .compact-card.positive {
+      background: #f4f7df;
+      border-color: #d8e49f;
+    }
+
+    .compact-card.negative {
+      background: #fff5f7;
+      border-color: #edcad3;
+    }
+
     .row {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
       gap: 10px;
       align-items: center;
-      padding: 13px 14px;
+      padding: 12px 13px;
       border: 1px solid var(--line);
-      border-radius: 16px;
+      border-radius: 18px;
       background: var(--panel);
       box-shadow: 0 6px 14px rgba(23, 35, 31, .04);
     }
@@ -360,18 +453,61 @@
     }
 
     .row-value {
-      color: var(--green-dark);
+      color: var(--sage-dark);
       font-weight: 800;
       white-space: nowrap;
     }
 
     .row-value.negative,
     .negative {
-      color: var(--rose);
+      color: var(--negative);
     }
 
     .positive {
-      color: var(--green-dark);
+      color: var(--sage-dark);
+    }
+
+    .holiday {
+      color: var(--wine);
+    }
+
+    .badge-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: var(--beige-soft);
+      color: var(--muted);
+      font-size: .72rem;
+      font-weight: 800;
+    }
+
+    .badge.positive {
+      background: #edf4c9;
+      color: var(--sage-dark);
+    }
+
+    .badge.negative {
+      background: #f8dce3;
+      color: var(--negative);
+    }
+
+    .badge.holiday {
+      background: var(--carmine-soft);
+      color: var(--wine);
+    }
+
+    .badge.open {
+      background: var(--beige);
+      color: #5e5344;
     }
 
     .history-toolbar {
@@ -400,6 +536,13 @@
       padding: 8px 11px;
     }
 
+    .small-btn.secondary {
+      background: var(--carmine-soft);
+      color: var(--wine);
+      border-color: #e8c9d1;
+      font-weight: 800;
+    }
+
     .small-btn.danger {
       color: var(--rose);
     }
@@ -416,19 +559,48 @@
       margin-top: 10px;
       width: 100%;
       border-color: transparent;
-      background: var(--panel-soft);
-      color: var(--green-dark);
+      background: var(--carmine-soft);
+      color: var(--wine);
       font-weight: 800;
     }
 
     .manual-editor {
       display: grid;
       gap: 11px;
-      margin-bottom: 12px;
+      margin: 0;
       padding: 12px;
       border: 1px solid var(--line);
       border-radius: 18px;
       background: var(--panel-soft);
+    }
+
+    .manual-shell {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      padding: 18px;
+      background: rgba(36, 27, 31, .28);
+      overflow: auto;
+    }
+
+    .manual-shell.open {
+      display: grid;
+      place-items: start center;
+    }
+
+    .manual-shell .manual-editor {
+      width: min(620px, 100%);
+      margin-top: min(8vh, 54px);
+      background: #fffafc;
+      box-shadow: 0 24px 70px rgba(36, 27, 31, .22);
+    }
+
+    .history-top {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      margin-bottom: 10px;
     }
 
     .manual-editor h3 {
@@ -483,7 +655,7 @@
     .primary-btn {
       border: 0;
       border-radius: 14px;
-      background: var(--green);
+      background: var(--wine);
       color: #fff;
       cursor: pointer;
       font-weight: 800;
@@ -536,13 +708,13 @@
       min-height: 26px;
       padding: 4px 8px;
       border-radius: 999px;
-      background: var(--panel-soft);
-      color: var(--green-dark);
+      background: var(--carmine-soft);
+      color: var(--wine);
       font-size: .78rem;
       font-weight: 700;
     }
 
-    .mobile-nav {
+    .drawer-backdrop {
       display: none;
     }
 
@@ -553,42 +725,58 @@
       }
 
       .drawer {
-        position: static;
+        position: fixed;
+        inset: 0 auto 0 0;
+        z-index: 40;
+        width: min(310px, calc(100vw - 42px));
+        padding: 14px;
+        background: linear-gradient(180deg, #fff, var(--carmine-soft));
+        box-shadow: 18px 0 40px rgba(36, 27, 31, .18);
+        transform: translateX(-105%);
+        transition: transform .22s ease;
+      }
+
+      body.drawer-open .drawer {
+        transform: translateX(0);
       }
 
       .drawer-card {
-        display: none;
+        display: block;
+        border: 0;
+        box-shadow: none;
+        background: transparent;
+        padding: 0;
       }
 
-      .mobile-nav {
-        display: grid;
-        grid-template-columns: repeat(5, minmax(72px, 1fr));
-        gap: 8px;
-        overflow-x: auto;
-        padding: 8px;
-        border: 1px solid var(--line);
-        border-radius: 18px;
-        background: rgba(255, 255, 255, .9);
-        box-shadow: var(--soft-shadow);
-        margin-bottom: 14px;
+      .drawer-close,
+      .menu-toggle {
+        display: inline-grid;
+        place-items: center;
       }
 
-      .mobile-nav .nav-tab {
-        min-height: 58px;
-        justify-content: center;
-        flex-direction: column;
-        gap: 4px;
-        padding: 8px;
-        font-size: .76rem;
+      .drawer-close {
+        margin-left: auto;
+        margin-bottom: 10px;
       }
 
-      .mobile-nav .nav-tab .icon {
-        width: 24px;
-        height: 24px;
+      .drawer-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 35;
+        background: rgba(36, 27, 31, .28);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .2s ease;
+      }
+
+      body.drawer-open .drawer-backdrop {
+        display: block;
+        opacity: 1;
+        pointer-events: auto;
       }
 
       header {
-        align-items: flex-start;
+        align-items: center;
       }
     }
 
@@ -599,19 +787,11 @@
 
       header {
         gap: 10px;
-      }
-
-      .clock {
-        min-width: 94px;
-        padding: 10px;
-      }
-
-      .clock strong {
-        font-size: 1.12rem;
+        padding-top: 4px;
       }
 
       .section {
-        padding: 13px;
+        padding: 12px;
       }
 
       .page.active {
@@ -628,6 +808,10 @@
 
       .stats {
         grid-template-columns: 1fr;
+      }
+
+      .compact-stats {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
 
       .history-toolbar {
@@ -653,6 +837,7 @@
 <body>
   <main class="app">
     <header>
+      <button class="menu-toggle" id="openMenu" type="button" aria-label="Abrir menu">☰</button>
       <div class="brand">
         <h1>Controle de Ponto</h1>
         <p class="today-line" id="todayLine">Carregando data...</p>
@@ -663,33 +848,47 @@
       </div>
     </header>
 
-    <div class="mobile-nav" aria-label="Navegação principal">
-      <button class="nav-tab tab active" data-tab="overview" type="button"><span class="icon">⌂</span>Visão Geral</button>
-      <button class="nav-tab tab" data-tab="register" type="button"><span class="icon">＋</span>Registrar</button>
-      <button class="nav-tab tab" data-tab="history" type="button"><span class="icon">◷</span>Histórico</button>
-      <button class="nav-tab tab" data-tab="month" type="button"><span class="icon">▦</span>Mês</button>
-      <button class="nav-tab tab" data-tab="backup" type="button"><span class="icon">⇩</span>Backup</button>
-    </div>
-
+    <div class="drawer-backdrop" id="drawerBackdrop"></div>
     <div class="shell">
       <aside class="drawer" aria-label="Menu lateral">
         <div class="drawer-card">
+          <button class="drawer-close" id="closeMenu" type="button" aria-label="Fechar menu">×</button>
           <div class="drawer-title">
             <strong>Menu</strong>
             <span>Navegação do app</span>
           </div>
           <nav class="drawer-nav">
             <button class="nav-tab tab active" data-tab="overview" type="button"><span class="icon">⌂</span>Visão Geral</button>
-            <button class="nav-tab tab" data-tab="register" type="button"><span class="icon">＋</span>Registrar Ponto</button>
+            <button class="nav-tab tab" data-tab="register" type="button"><span class="icon">+</span>Registrar Ponto</button>
             <button class="nav-tab tab" data-tab="history" type="button"><span class="icon">◷</span>Histórico</button>
             <button class="nav-tab tab" data-tab="month" type="button"><span class="icon">▦</span>Mês</button>
-            <button class="nav-tab tab" data-tab="backup" type="button"><span class="icon">⇩</span>Backup dos dados</button>
+            <button class="nav-tab tab" data-tab="backup" type="button"><span class="icon">↓</span>Backup dos dados</button>
           </nav>
         </div>
       </aside>
 
       <div class="content">
         <section class="page active" id="panel-overview">
+          <section class="section">
+            <div class="section-title">
+              <h2>Visão Geral</h2>
+              <span class="hint">Hoje</span>
+            </div>
+            <div class="compact-stats">
+              <div class="compact-card">
+                <span>Trabalhadas</span>
+                <b id="todayWorkedCompact">0h00</b>
+              </div>
+              <div class="compact-card positive">
+                <span>Extras</span>
+                <b id="todayExtraCompact">0h00</b>
+              </div>
+              <div class="compact-card negative">
+                <span>A menos</span>
+                <b id="todayDeficitCompact">0h00</b>
+              </div>
+            </div>
+          </section>
           <div class="overview-grid">
             <div class="stack">
               <section class="section">
@@ -730,7 +929,7 @@
                     <span>Valor das horas de feriado</span>
                     <b class="positive" id="monthHolidayValue">R$ 0,00</b>
                   </div>
-                  <div class="stat wide">
+                  <div class="stat wide total-stat">
                     <span>Total estimado do mês</span>
                     <b id="monthEstimatedTotal">R$ 2.300,00</b>
                   </div>
@@ -820,6 +1019,13 @@
             <h2>Histórico</h2>
             <span class="hint">Editar e revisar dias</span>
           </div>
+            <div class="history-top">
+              <input class="date-input" id="historyDate" type="date" aria-label="Filtrar histórico por data">
+              <button class="primary-btn" id="addManualDay" type="button">Adicionar dia</button>
+            </div>
+            <div class="history-list" id="historyList"></div>
+            <button class="small-btn danger" id="clearAll" type="button">Limpar tudo</button>
+            <div class="manual-shell" id="manualShell">
             <form class="manual-editor" id="manualForm">
               <h3>Adicionar ou editar dia</h3>
               <div class="field">
@@ -862,14 +1068,11 @@
               <span class="hint" id="manualDaySummary">Escolha uma data para preencher ou corrigir.</span>
               <div class="form-actions">
                 <button class="primary-btn" type="submit">Salvar horários</button>
+                <button class="small-btn secondary" id="cancelManualForm" type="button">Cancelar</button>
                 <button class="small-btn" id="clearManualForm" type="button">Limpar formulário</button>
               </div>
             </form>
-            <div class="history-toolbar">
-              <input class="date-input" id="historyDate" type="date" aria-label="Filtrar histórico por data">
-              <button class="small-btn danger" id="clearAll" type="button">Limpar tudo</button>
             </div>
-            <div class="history-list" id="historyList"></div>
         </section>
         </section>
 
@@ -1136,6 +1339,7 @@
       const holidayExtra = isHoliday ? worked : 0;
       const deficit = !isHoliday && isComplete && expected > 0 ? Math.max(0, expected - worked) : 0;
       const extra = regularExtra;
+      const isFuture = key > dateKey(new Date()) && records.length === 0 && !isHoliday && !isHalfDay && !isNoLunch;
       return {
         key,
         date,
@@ -1151,6 +1355,7 @@
         isHalfDay,
         isNoLunch,
         isComplete,
+        isFuture,
         rule,
         ruleLabel: rule.label
       };
@@ -1223,6 +1428,7 @@
     }
 
     function balanceLabel(summary) {
+      if (summary.isFuture) return "Próximo dia";
       if (summary.isHoliday) return "Feriado: sem horas a menos";
       if (!summary.isComplete && summary.expected > 0) return "Jornada em aberto";
       if (summary.deficit > 0) return `Horas a menos: ${minutesToText(summary.deficit)}`;
@@ -1230,6 +1436,7 @@
     }
 
     function daySummaryText(summary) {
+      if (summary.isFuture) return "Próximo dia";
       const parts = [
         `${minutesToText(summary.worked)} trabalhadas`,
         summary.ruleLabel,
@@ -1251,11 +1458,46 @@
     }
 
     function highlightValueLabel(summary, includeWorked = false) {
+      if (summary.isFuture) return "Próximo dia";
       if (summary.deficit > 0) return `Horas a menos: ${minutesToText(summary.deficit)}`;
       if (summary.isHoliday) return `${minutesToText(summary.holidayExtra)} feriado 100%`;
 
       const extraText = `${minutesToText(summary.regularExtra + summary.holidayExtra)} extra`;
       return includeWorked ? `${minutesToText(summary.worked)} · ${extraText}` : extraText;
+    }
+
+    function summaryValueClass(summary) {
+      if (summary.deficit > 0) return "negative";
+      if (summary.isHoliday || summary.holidayExtra > 0) return "holiday";
+      if (summary.regularExtra > 0) return "positive";
+      return "";
+    }
+
+    function dayBadges(summary) {
+      const badges = [];
+      if (summary.isFuture) badges.push(["Próximo dia", ""]);
+      if (summary.isHoliday) badges.push(["Feriado 100%", "holiday"]);
+      if (summary.isHalfDay) badges.push(["Meio período", ""]);
+      if (summary.isNoLunch) badges.push(["Sem intervalo", ""]);
+      if (!summary.isFuture && !summary.isComplete && summary.expected > 0) badges.push(["Jornada em aberto", "open"]);
+      if (summary.deficit > 0) badges.push([`A menos ${minutesToText(summary.deficit)}`, "negative"]);
+      if (summary.regularExtra > 0) badges.push([`Extra ${minutesToText(summary.regularExtra)}`, "positive"]);
+      if (summary.holidayExtra > 0) badges.push([`Feriado ${minutesToText(summary.holidayExtra)}`, "holiday"]);
+      return badges;
+    }
+
+    function badgesHtml(summary) {
+      const badges = dayBadges(summary);
+      if (!badges.length) return "";
+      return `<div class="badge-line">${badges.map(([label, type]) => `<span class="badge ${type}">${label}</span>`).join("")}</div>`;
+    }
+
+    function dayCompactSubtitle(summary) {
+      if (summary.isFuture) return "Próximo dia";
+      const parts = [`${minutesToText(summary.worked)} trabalhadas`];
+      if (summary.rule.type !== "normal") parts.push(summary.ruleLabel);
+      parts.push(balanceLabel(summary));
+      return parts.join(" · ");
     }
 
     function localDateTime(day, time) {
@@ -1266,6 +1508,15 @@
       document.getElementById("manualDate").value = day;
       document.getElementById("historyDate").value = day;
       fillManualForm(day);
+    }
+
+    function openManualEditor(day = document.getElementById("historyDate").value || dateKey(new Date())) {
+      syncManualDate(day);
+      document.getElementById("manualShell").classList.add("open");
+    }
+
+    function closeManualEditor() {
+      document.getElementById("manualShell").classList.remove("open");
     }
 
     function syncExceptionControls() {
@@ -1366,6 +1617,7 @@
       document.getElementById("historyDate").value = day;
       render();
       fillManualForm(day);
+      closeManualEditor();
       showToast("Horários salvos e cálculos atualizados.");
     }
 
@@ -1545,6 +1797,9 @@
       document.getElementById("standardDay").textContent = summary.ruleLabel;
       document.getElementById("todayWorked").textContent = minutesToText(summary.worked);
       document.getElementById("todayExtra").textContent = minutesToText(summary.regularExtra);
+      document.getElementById("todayWorkedCompact").textContent = minutesToText(summary.worked);
+      document.getElementById("todayExtraCompact").textContent = minutesToText(summary.regularExtra + summary.holidayExtra);
+      document.getElementById("todayDeficitCompact").textContent = minutesToText(summary.deficit);
       document.getElementById("todayPunchCount").textContent = String(
         typeOrder.filter(type => summary.records.some(record => record.type === type)).length
       );
@@ -1580,13 +1835,14 @@
       document.getElementById("monthLabel").textContent = now.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
     }
 
-    function summaryRow(title, subtitle, value, valueClass = "") {
+    function summaryRow(title, subtitle, value, valueClass = "", extraHtml = "") {
       const row = document.createElement("div");
       row.className = "row";
       row.innerHTML = `
         <div class="row-main">
           <strong>${title}</strong>
           <span>${subtitle}</span>
+          ${extraHtml}
         </div>
         <div class="row-value ${valueClass}">${value}</div>
       `;
@@ -1605,9 +1861,10 @@
         extra += item.regularExtra + item.holidayExtra;
         container.appendChild(summaryRow(
           `${shortDateFmt.format(item.date)}${dayTitleSuffix(item)}`,
-          `${daySummaryText(item)} · ${item.records.length} registros`,
+          `${dayCompactSubtitle(item)} · ${item.records.length} registros`,
           highlightValueLabel(item),
-          item.deficit > 0 ? "negative" : ""
+          summaryValueClass(item),
+          badgesHtml(item)
         ));
       });
 
@@ -1630,6 +1887,7 @@
       const worked = summaries.reduce((sum, item) => sum + item.worked, 0);
       const extra = summaries.reduce((sum, item) => sum + item.regularExtra, 0);
       const holiday = summaries.reduce((sum, item) => sum + item.holidayExtra, 0);
+      const deficit = summaries.reduce((sum, item) => sum + item.deficit, 0);
       const extraTotal = extraValue(extra);
       const holidayTotal = holidayValue(holiday);
 
@@ -1652,6 +1910,12 @@
         "Horas trabalhadas em feriado",
         "Pagas com adicional de 100%",
         minutesToText(holiday)
+      ));
+      container.appendChild(summaryRow(
+        "Horas a menos",
+        "Somente jornadas concluídas",
+        minutesToText(deficit),
+        deficit > 0 ? "negative" : ""
       ));
       container.appendChild(summaryRow("Valor total das horas extras", "Calculado somente sobre o salário-base", money.format(extraTotal)));
       container.appendChild(summaryRow("Valor das horas de feriado", "Hora de feriado vale 2x a hora normal", money.format(holidayTotal)));
@@ -1681,9 +1945,10 @@
           .join(" · ");
         container.appendChild(summaryRow(
           `${shortDateFmt.format(item.date)}${dayTitleSuffix(item)}`,
-          `${points ? `${points} · ` : ""}${daySummaryText(item)}`,
+          `${points ? `${points} · ` : ""}${dayCompactSubtitle(item)}`,
           highlightValueLabel(item, true),
-          item.deficit > 0 ? "negative" : ""
+          summaryValueClass(item),
+          badgesHtml(item)
         ));
       });
     }
@@ -1703,10 +1968,11 @@
       dayRow.innerHTML = `
         <div class="row-main">
           <strong>${shortDateFmt.format(summary.date)}${dayTitleSuffix(summary)}</strong>
-          <span>${daySummaryText(summary)} · ${money.format(totalExtraValue(summary))}</span>
+          <span>${dayCompactSubtitle(summary)} · ${money.format(totalExtraValue(summary))}</span>
+          ${badgesHtml(summary)}
         </div>
         <div class="day-actions">
-          <span class="row-value ${summary.deficit > 0 ? "negative" : ""}">${highlightValueLabel(summary)}</span>
+          <span class="row-value ${summaryValueClass(summary)}">${highlightValueLabel(summary)}</span>
           <button class="small-btn" type="button" data-edit-day="${selected}">${records.length ? "Editar horários" : "Adicionar horários"}</button>
         </div>
       `;
@@ -1754,10 +2020,11 @@
         row.innerHTML = `
           <div class="row-main">
             <strong>${shortDateFmt.format(item.date)}${dayTitleSuffix(item)}</strong>
-            <span>${daySummaryText(item)} · ${item.records.length} registros</span>
+            <span>${dayCompactSubtitle(item)} · ${item.records.length} registros</span>
+            ${badgesHtml(item)}
           </div>
           <div class="day-actions">
-            <span class="row-value ${item.deficit > 0 ? "negative" : ""}">${item.deficit > 0 ? `Horas a menos: ${minutesToText(item.deficit)}` : money.format(totalExtraValue(item))}</span>
+            <span class="row-value ${summaryValueClass(item)}">${item.deficit > 0 ? `Horas a menos: ${minutesToText(item.deficit)}` : money.format(totalExtraValue(item))}</span>
             <button class="small-btn" type="button" data-edit-day="${day}">Editar horários</button>
           </div>
         `;
@@ -1776,14 +2043,25 @@
       renderHistory();
     }
 
+    function openDrawer() {
+      document.body.classList.add("drawer-open");
+    }
+
+    function closeDrawer() {
+      document.body.classList.remove("drawer-open");
+    }
+
     document.querySelectorAll(".punch-btn").forEach(button => {
       button.addEventListener("click", () => addRecord(button.dataset.type));
     });
 
+    document.getElementById("openMenu").addEventListener("click", openDrawer);
+    document.getElementById("closeMenu").addEventListener("click", closeDrawer);
+    document.getElementById("drawerBackdrop").addEventListener("click", closeDrawer);
+
     document.getElementById("editToday").addEventListener("click", () => {
-      syncManualDate(dateKey(new Date()));
       document.querySelector('[data-tab="history"]').click();
-      document.getElementById("manualForm").scrollIntoView({ behavior: "smooth", block: "start" });
+      openManualEditor(dateKey(new Date()));
     });
 
     document.querySelectorAll(".tab").forEach(button => {
@@ -1792,6 +2070,7 @@
         document.querySelectorAll(".tab").forEach(tab => tab.classList.toggle("active", tab.dataset.tab === state.tab));
         document.querySelectorAll(".page").forEach(panel => panel.classList.remove("active"));
         document.getElementById(`panel-${state.tab}`).classList.add("active");
+        closeDrawer();
       });
     });
 
@@ -1807,6 +2086,13 @@
     });
 
     document.getElementById("clearManualForm").addEventListener("click", clearManualForm);
+    document.getElementById("cancelManualForm").addEventListener("click", closeManualEditor);
+    document.getElementById("addManualDay").addEventListener("click", () => {
+      openManualEditor(document.getElementById("historyDate").value || dateKey(new Date()));
+    });
+    document.getElementById("manualShell").addEventListener("click", event => {
+      if (event.target.id === "manualShell") closeManualEditor();
+    });
 
     document.getElementById("manualDate").addEventListener("change", event => {
       const day = event.target.value || dateKey(new Date());
@@ -1823,8 +2109,7 @@
     document.getElementById("historyList").addEventListener("click", event => {
       const editButton = event.target.closest("[data-edit-day]");
       if (editButton) {
-        syncManualDate(editButton.dataset.editDay);
-        document.getElementById("manualForm").scrollIntoView({ behavior: "smooth", block: "start" });
+        openManualEditor(editButton.dataset.editDay);
         return;
       }
 
