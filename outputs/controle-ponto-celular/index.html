@@ -935,20 +935,20 @@
           <section class="section">
             <div class="section-title">
               <h2>Visão Geral</h2>
-              <span class="hint">Hoje</span>
+              <span class="hint">Mês atual</span>
             </div>
             <div class="compact-stats">
               <div class="compact-card">
                 <span>Trabalhadas</span>
-                <b id="todayWorkedCompact">0h00</b>
+                <b id="overviewMonthWorked">0h00</b>
               </div>
               <div class="compact-card positive">
                 <span>Extras</span>
-                <b id="todayExtraCompact">0h00</b>
+                <b id="overviewMonthExtra">0h00</b>
               </div>
               <div class="compact-card negative">
                 <span>A menos</span>
-                <b id="todayDeficitCompact">0h00</b>
+                <b id="overviewMonthDeficit">0h00</b>
               </div>
             </div>
           </section>
@@ -956,47 +956,18 @@
             <div class="stack">
               <section class="section">
                 <div class="section-title">
-                  <h2>Resumo da semana</h2>
-                  <span class="hint">Trabalho, saldos e extras</span>
+                  <h2>Resumo do mês</h2>
+                  <span class="hint" id="monthLabel">Mês atual</span>
                 </div>
-                <div class="list" id="weekSummary"></div>
+                <div class="list" id="overviewMonthSummary"></div>
               </section>
 
               <section class="section">
                 <div class="section-title">
-                  <h2>Pagamento do mês</h2>
-                  <span class="hint" id="monthLabel">Mês atual</span>
+                  <h2>Esta semana</h2>
+                  <span class="hint">Visão compacta</span>
                 </div>
-                <div class="stats">
-                  <div class="stat">
-                    <span>Salário-base</span>
-                    <b id="baseSalary">R$ 2.000,00</b>
-                  </div>
-                  <div class="stat">
-                    <span>Bônus mensal</span>
-                    <b id="monthlyBonus">R$ 300,00</b>
-                  </div>
-                  <div class="stat">
-                    <span>Horas extras acumuladas no mês</span>
-                    <b class="positive" id="monthExtra">0h00</b>
-                  </div>
-                  <div class="stat">
-                    <span>Valor acumulado das horas extras</span>
-                    <b class="positive" id="monthExtraValue">R$ 0,00</b>
-                  </div>
-                  <div class="stat">
-                    <span>Horas trabalhadas em feriado</span>
-                    <b class="positive" id="monthHolidayWorked">0h00</b>
-                  </div>
-                  <div class="stat">
-                    <span>Valor das horas de feriado</span>
-                    <b class="positive" id="monthHolidayValue">R$ 0,00</b>
-                  </div>
-                  <div class="stat wide total-stat">
-                    <span>Total estimado do mês</span>
-                    <b id="monthEstimatedTotal">R$ 2.300,00</b>
-                  </div>
-                </div>
+                <div class="list" id="weekSummary"></div>
               </section>
             </div>
 
@@ -1910,9 +1881,6 @@
       document.getElementById("standardDay").textContent = summary.ruleLabel;
       document.getElementById("todayWorked").textContent = minutesToText(summary.worked);
       document.getElementById("todayExtra").textContent = minutesToText(summary.regularExtra);
-      document.getElementById("todayWorkedCompact").textContent = minutesToText(summary.worked);
-      document.getElementById("todayExtraCompact").textContent = minutesToText(summary.regularExtra + summary.holidayExtra);
-      document.getElementById("todayDeficitCompact").textContent = minutesToText(summary.deficit);
       document.getElementById("todayPunchCount").textContent = String(
         typeOrder.filter(type => summary.records.some(record => record.type === type)).length
       );
@@ -1934,18 +1902,31 @@
     function renderPayments() {
       const now = new Date();
       const monthSummaries = summariesForKeys(currentMonthKeys(now));
+      const monthWorked = monthSummaries.reduce((sum, item) => sum + item.worked, 0);
       const monthExtra = monthSummaries.reduce((sum, item) => sum + item.regularExtra, 0);
       const monthHoliday = monthSummaries.reduce((sum, item) => sum + item.holidayExtra, 0);
+      const monthDeficit = monthSummaries.reduce((sum, item) => sum + item.deficit, 0);
       const extraTotal = extraValue(monthExtra);
       const holidayTotal = holidayValue(monthHoliday);
-      document.getElementById("baseSalary").textContent = money.format(BASE_SALARY);
-      document.getElementById("monthlyBonus").textContent = money.format(MONTHLY_BONUS);
-      document.getElementById("monthExtra").textContent = minutesToText(monthExtra);
-      document.getElementById("monthExtraValue").textContent = money.format(extraTotal);
-      document.getElementById("monthHolidayWorked").textContent = minutesToText(monthHoliday);
-      document.getElementById("monthHolidayValue").textContent = money.format(holidayTotal);
-      document.getElementById("monthEstimatedTotal").textContent = money.format(BASE_SALARY + MONTHLY_BONUS + extraTotal + holidayTotal);
+      const estimatedTotal = BASE_SALARY + MONTHLY_BONUS + extraTotal + holidayTotal;
+      document.getElementById("overviewMonthWorked").textContent = minutesToText(monthWorked);
+      document.getElementById("overviewMonthExtra").textContent = minutesToText(monthExtra);
+      document.getElementById("overviewMonthDeficit").textContent = minutesToText(monthDeficit);
       document.getElementById("monthLabel").textContent = now.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+
+      const container = document.getElementById("overviewMonthSummary");
+      container.innerHTML = "";
+      const monthGrid = document.createElement("div");
+      monthGrid.className = "month-grid";
+      monthGrid.innerHTML = [
+        metricCardHtml("Horas trabalhadas", minutesToText(monthWorked)),
+        metricCardHtml("Horas extras", minutesToText(monthExtra), "positive"),
+        metricCardHtml("Feriado 100%", minutesToText(monthHoliday), "holiday"),
+        metricCardHtml("Horas a menos", minutesToText(monthDeficit), monthDeficit > 0 ? "negative" : ""),
+        metricCardHtml("Valor das extras", money.format(extraTotal), "positive"),
+        metricCardHtml("Total estimado", money.format(estimatedTotal), "total-finance")
+      ].join("");
+      container.appendChild(monthGrid);
     }
 
     function summaryRow(title, subtitle, value, valueClass = "", extraHtml = "") {
