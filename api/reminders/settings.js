@@ -8,7 +8,10 @@ const {
 const { normalizeReminderSettings } = require("../_reminder-logic");
 
 function send(res, response) {
-  res.writeHead(response.status, response.headers);
+  res.writeHead(response.status, {
+    ...response.headers,
+    "Cache-Control": "no-store"
+  });
   res.end(response.body);
 }
 
@@ -26,6 +29,7 @@ module.exports = async function handler(req, res) {
       const record = await getReminderSettings(deviceId);
       send(res, json(200, {
         ok: true,
+        exists: Boolean(record?.settings),
         settings: normalizeReminderSettings(record?.settings)
       }));
       return;
@@ -40,9 +44,9 @@ module.exports = async function handler(req, res) {
         return;
       }
 
-      const settings = normalizeReminderSettings(body.settings);
+      const settings = normalizeReminderSettings(body.settings || body);
       await saveReminderSettings(deviceId, settings);
-      send(res, json(200, { ok: true, settings }));
+      send(res, json(200, { ok: true, exists: true, settings }));
       return;
     }
 

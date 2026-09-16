@@ -1300,6 +1300,7 @@
     const STORAGE_KEY = "controle-ponto-registros-v1";
     const DAY_META_KEY = "controle-ponto-dias-v1";
     const PUSH_DEVICE_KEY = "controle-ponto-push-device-v1";
+    const REMINDER_SETTINGS_CACHE_KEY = "controle-ponto-lembretes-v1";
     const BASE_SALARY = 2000;
     const MONTHLY_BONUS = 300;
     const MONTHLY_HOURS = 220;
@@ -1416,6 +1417,19 @@
       };
     }
 
+    function loadCachedReminderSettings() {
+      try {
+        const raw = localStorage.getItem(REMINDER_SETTINGS_CACHE_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function saveCachedReminderSettings(settings) {
+      localStorage.setItem(REMINDER_SETTINGS_CACHE_KEY, JSON.stringify(settings));
+    }
+
     function pushSupported() {
       return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
     }
@@ -1449,6 +1463,7 @@
       const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        cache: "no-store",
         body: JSON.stringify(payload)
       });
       const data = await response.json().catch(() => ({}));
@@ -1523,25 +1538,35 @@
     }
 
     async function loadReminderSettings() {
-      applyReminderSettingsToForm(DEFAULT_REMINDER_SETTINGS);
+      const cached = loadCachedReminderSettings();
+      applyReminderSettingsToForm(cached || DEFAULT_REMINDER_SETTINGS);
       const id = existingDeviceId();
       if (!id) return;
 
-      const response = await fetch(`/api/reminders/settings?deviceId=${encodeURIComponent(id)}`);
+      const response = await fetch(`/api/reminders/settings?deviceId=${encodeURIComponent(id)}`, {
+        cache: "no-store"
+      });
       const data = await response.json().catch(() => ({}));
       if (response.ok && data.settings) {
         applyReminderSettingsToForm(data.settings);
+        if (data.exists) saveCachedReminderSettings(data.settings);
       }
     }
 
     async function saveReminderSettings() {
-      const id = deviceId();
+      const id = existingDeviceId() || deviceId();
       const settings = reminderSettingsFromForm();
 
-      await apiPost("/api/reminders/settings", {
+      const data = await apiPost("/api/reminders/settings", {
         deviceId: id,
         settings
       });
+      if (data.settings) {
+        applyReminderSettingsToForm(data.settings);
+        saveCachedReminderSettings(data.settings);
+      } else {
+        saveCachedReminderSettings(settings);
+      }
       await syncReminderDay(dateKey(new Date()));
       showToast("Lembretes salvos.");
     }
@@ -1633,6 +1658,7 @@
         deviceId: deviceId(),
         settings
       });
+      saveCachedReminderSettings(settings);
       await apiPost("/api/push/unsubscribe", { deviceId: deviceId() });
       await refreshNotificationStatus();
       showToast("Notificações desativadas.");
@@ -2580,6 +2606,9 @@
       document.querySelectorAll(".tab").forEach(tab => tab.classList.toggle("active", tab.dataset.tab === state.tab));
       document.querySelectorAll(".page").forEach(panel => panel.classList.remove("active"));
       document.getElementById(`panel-${state.tab}`).classList.add("active");
+      if (state.tab === "notifications") {
+        loadReminderSettings().catch(() => {});
+      }
       if (location.hash !== `#${tabName}`) {
         history.replaceState(null, "", `#${tabName}`);
       }
@@ -2674,10 +2703,17 @@
 
     document.getElementById("exportCsv").addEventListener("click", exportCsv);
 
-    document.getElementById("saveReminders").addEventListener("click", () => {
-      saveReminderSettings().catch(error => {
-        showToast(error.message || "Não foi possível salvar os lembretes.");
-      });
+    document.addEventListener("click", event => {
+      const saveButton = event.target.closest("#saveReminders");
+      if (!saveButton) return;
+      saveButton.disabled = true;
+      saveReminderSettings()
+        .catch(error => {
+          showToast(error.message || "Não foi possível salvar os lembretes.");
+        })
+        .finally(() => {
+          saveButton.disabled = false;
+        });
     });
 
     document.getElementById("enableNotifications").addEventListener("click", () => {
