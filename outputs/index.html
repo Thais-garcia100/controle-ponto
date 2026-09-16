@@ -1547,9 +1547,9 @@
         cache: "no-store"
       });
       const data = await response.json().catch(() => ({}));
-      if (response.ok && data.settings) {
+      if (response.ok && data.exists && data.settings) {
         applyReminderSettingsToForm(data.settings);
-        if (data.exists) saveCachedReminderSettings(data.settings);
+        saveCachedReminderSettings(data.settings);
       }
     }
 

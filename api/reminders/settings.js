@@ -15,6 +15,27 @@ function send(res, response) {
   res.end(response.body);
 }
 
+function settingsLogSummary(settings) {
+  if (!settings) return null;
+  return {
+    enabled: settings.enabled,
+    timezone: settings.timezone,
+    toleranceMinutes: settings.toleranceMinutes,
+    lunchReturnMinutes: settings.lunchReturnMinutes,
+    reminders: settings.reminders,
+    times: settings.times
+  };
+}
+
+function logSettings(action, deviceId, exists, settings) {
+  console.log("[reminders/settings]", JSON.stringify({
+    action,
+    deviceId: `${deviceId.slice(0, 8)}...${deviceId.slice(-4)}`,
+    exists,
+    settings: settingsLogSummary(settings)
+  }));
+}
+
 module.exports = async function handler(req, res) {
   try {
     if (req.method === "GET") {
@@ -27,10 +48,13 @@ module.exports = async function handler(req, res) {
       }
 
       const record = await getReminderSettings(deviceId);
+      const exists = Boolean(record?.settings);
+      const settings = exists ? normalizeReminderSettings(record.settings) : null;
+      logSettings("GET", deviceId, exists, settings);
       send(res, json(200, {
         ok: true,
-        exists: Boolean(record?.settings),
-        settings: normalizeReminderSettings(record?.settings)
+        exists,
+        settings
       }));
       return;
     }
@@ -46,6 +70,7 @@ module.exports = async function handler(req, res) {
 
       const settings = normalizeReminderSettings(body.settings || body);
       await saveReminderSettings(deviceId, settings);
+      logSettings("POST", deviceId, true, settings);
       send(res, json(200, { ok: true, exists: true, settings }));
       return;
     }
