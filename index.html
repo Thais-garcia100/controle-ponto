@@ -689,6 +689,42 @@
       gap: 10px;
     }
 
+    .reminder-settings {
+      display: grid;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .reminder-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .reminder-card {
+      display: grid;
+      gap: 8px;
+      padding: 11px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fff;
+    }
+
+    .check-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--ink);
+      font-weight: 800;
+    }
+
+    .check-line input {
+      width: 20px;
+      height: 20px;
+      accent-color: var(--wine);
+    }
+
     .status-line {
       display: flex;
       align-items: center;
@@ -917,7 +953,8 @@
       .time-grid,
       .form-actions,
       .backup-actions,
-      .notification-actions {
+      .notification-actions,
+      .reminder-grid {
         grid-template-columns: 1fr;
       }
 
@@ -1178,8 +1215,8 @@
         <section class="page" id="panel-notifications">
           <section class="section">
             <div class="section-title">
-              <h2>Notificações</h2>
-              <span class="hint">Infraestrutura de push</span>
+              <h2>Lembretes de ponto</h2>
+              <span class="hint">Notificações automáticas</span>
             </div>
             <div class="notification-status">
               <div class="status-line">
@@ -1190,6 +1227,60 @@
                 <span>Subscription</span>
                 <strong id="notificationSubscription">Inativa</strong>
               </div>
+            </div>
+            <div class="reminder-settings">
+              <label class="status-line">
+                <span>Lembretes automáticos</span>
+                <input id="reminderEnabled" type="checkbox">
+              </label>
+              <div class="reminder-grid">
+                <div class="reminder-card">
+                  <label class="check-line" for="reminderEntrada">
+                    Entrada
+                    <input id="reminderEntrada" type="checkbox">
+                  </label>
+                  <label class="field" for="reminderEntradaTime">
+                    <span>Horário</span>
+                    <input class="time-input" id="reminderEntradaTime" type="time">
+                  </label>
+                </div>
+                <div class="reminder-card">
+                  <label class="check-line" for="reminderSaidaAlmoco">
+                    Saída para almoço
+                    <input id="reminderSaidaAlmoco" type="checkbox">
+                  </label>
+                  <label class="field" for="reminderSaidaAlmocoTime">
+                    <span>Horário</span>
+                    <input class="time-input" id="reminderSaidaAlmocoTime" type="time">
+                  </label>
+                </div>
+                <div class="reminder-card">
+                  <label class="check-line" for="reminderVoltaAlmoco">
+                    Volta do almoço
+                    <input id="reminderVoltaAlmoco" type="checkbox">
+                  </label>
+                  <label class="field" for="reminderLunchReturnMinutes">
+                    <span>Lembrar após</span>
+                    <input class="time-input" id="reminderLunchReturnMinutes" type="number" min="15" max="180" step="5">
+                  </label>
+                  <span class="hint">Minutos após a saída para almoço real.</span>
+                </div>
+                <div class="reminder-card">
+                  <label class="check-line" for="reminderSaida">
+                    Saída
+                    <input id="reminderSaida" type="checkbox">
+                  </label>
+                  <label class="field" for="reminderSaidaTime">
+                    <span>Horário</span>
+                    <input class="time-input" id="reminderSaidaTime" type="time">
+                  </label>
+                </div>
+              </div>
+              <label class="field" for="reminderToleranceMinutes">
+                <span>Tolerância em minutos</span>
+                <input class="time-input" id="reminderToleranceMinutes" type="number" min="0" max="60" step="1">
+              </label>
+              <button class="primary-btn" id="saveReminders" type="button">Salvar lembretes</button>
             </div>
             <div class="notification-actions">
               <button class="primary-btn" id="enableNotifications" type="button">Ativar notificações</button>
@@ -1216,6 +1307,23 @@
     const HOLIDAY_RATE = 2;
     const STANDARD_DAILY_MINUTES = 8 * 60 + 48;
     const HALF_DAY_MINUTES = STANDARD_DAILY_MINUTES / 2;
+    const DEFAULT_REMINDER_SETTINGS = {
+      enabled: false,
+      timezone: "America/Sao_Paulo",
+      toleranceMinutes: 5,
+      lunchReturnMinutes: 60,
+      reminders: {
+        entrada: true,
+        saida_almoco: true,
+        volta_almoco: true,
+        saida: true
+      },
+      times: {
+        entrada: "07:00",
+        saida_almoco: "12:00",
+        saida: "16:48"
+      }
+    };
 
     const labels = {
       entrada: "Entrada",
@@ -1276,6 +1384,38 @@
       localStorage.setItem(DAY_META_KEY, JSON.stringify(state.dayMeta));
     }
 
+    function appTimezone() {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_REMINDER_SETTINGS.timezone;
+    }
+
+    function existingDeviceId() {
+      return localStorage.getItem(PUSH_DEVICE_KEY);
+    }
+
+    function normalizeReminderSettings(settings = {}) {
+      return {
+        enabled: typeof settings.enabled === "boolean" ? settings.enabled : DEFAULT_REMINDER_SETTINGS.enabled,
+        timezone: settings.timezone || appTimezone(),
+        toleranceMinutes: Number.isFinite(Number(settings.toleranceMinutes))
+          ? Math.min(60, Math.max(0, Number.parseInt(settings.toleranceMinutes, 10)))
+          : DEFAULT_REMINDER_SETTINGS.toleranceMinutes,
+        lunchReturnMinutes: Number.isFinite(Number(settings.lunchReturnMinutes))
+          ? Math.min(180, Math.max(15, Number.parseInt(settings.lunchReturnMinutes, 10)))
+          : DEFAULT_REMINDER_SETTINGS.lunchReturnMinutes,
+        reminders: {
+          entrada: typeof settings.reminders?.entrada === "boolean" ? settings.reminders.entrada : true,
+          saida_almoco: typeof settings.reminders?.saida_almoco === "boolean" ? settings.reminders.saida_almoco : true,
+          volta_almoco: typeof settings.reminders?.volta_almoco === "boolean" ? settings.reminders.volta_almoco : true,
+          saida: typeof settings.reminders?.saida === "boolean" ? settings.reminders.saida : true
+        },
+        times: {
+          entrada: settings.times?.entrada || DEFAULT_REMINDER_SETTINGS.times.entrada,
+          saida_almoco: settings.times?.saida_almoco || DEFAULT_REMINDER_SETTINGS.times.saida_almoco,
+          saida: settings.times?.saida || DEFAULT_REMINDER_SETTINGS.times.saida
+        }
+      };
+    }
+
     function pushSupported() {
       return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
     }
@@ -1322,6 +1462,102 @@
       if (!pushSupported()) return null;
       const registration = await navigator.serviceWorker.ready;
       return registration.pushManager.getSubscription();
+    }
+
+    function reminderSettingsFromForm() {
+      return normalizeReminderSettings({
+        enabled: document.getElementById("reminderEnabled").checked,
+        timezone: appTimezone(),
+        toleranceMinutes: document.getElementById("reminderToleranceMinutes").value,
+        lunchReturnMinutes: document.getElementById("reminderLunchReturnMinutes").value,
+        reminders: {
+          entrada: document.getElementById("reminderEntrada").checked,
+          saida_almoco: document.getElementById("reminderSaidaAlmoco").checked,
+          volta_almoco: document.getElementById("reminderVoltaAlmoco").checked,
+          saida: document.getElementById("reminderSaida").checked
+        },
+        times: {
+          entrada: document.getElementById("reminderEntradaTime").value,
+          saida_almoco: document.getElementById("reminderSaidaAlmocoTime").value,
+          saida: document.getElementById("reminderSaidaTime").value
+        }
+      });
+    }
+
+    function applyReminderSettingsToForm(settingsInput = {}) {
+      const settings = normalizeReminderSettings(settingsInput);
+      document.getElementById("reminderEnabled").checked = settings.enabled;
+      document.getElementById("reminderEntrada").checked = settings.reminders.entrada;
+      document.getElementById("reminderSaidaAlmoco").checked = settings.reminders.saida_almoco;
+      document.getElementById("reminderVoltaAlmoco").checked = settings.reminders.volta_almoco;
+      document.getElementById("reminderSaida").checked = settings.reminders.saida;
+      document.getElementById("reminderEntradaTime").value = settings.times.entrada;
+      document.getElementById("reminderSaidaAlmocoTime").value = settings.times.saida_almoco;
+      document.getElementById("reminderSaidaTime").value = settings.times.saida;
+      document.getElementById("reminderLunchReturnMinutes").value = settings.lunchReturnMinutes;
+      document.getElementById("reminderToleranceMinutes").value = settings.toleranceMinutes;
+    }
+
+    function reminderDayState(day) {
+      const summary = daySummary(day);
+      const byType = recordsByType(summary.records);
+      const meta = dayMetaFor(day);
+      const records = {};
+      const times = {};
+
+      typeOrder.forEach(type => {
+        const record = byType[type];
+        records[type] = Boolean(record);
+        if (record) times[type] = timeText(parseRecordDate(record));
+      });
+
+      return {
+        date: day,
+        timezone: appTimezone(),
+        records,
+        times,
+        holiday: Boolean(meta.holiday),
+        halfDay: Boolean(meta.halfDay),
+        noLunch: Boolean(meta.noLunch)
+      };
+    }
+
+    async function loadReminderSettings() {
+      applyReminderSettingsToForm(DEFAULT_REMINDER_SETTINGS);
+      const id = existingDeviceId();
+      if (!id) return;
+
+      const response = await fetch(`/api/reminders/settings?deviceId=${encodeURIComponent(id)}`);
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data.settings) {
+        applyReminderSettingsToForm(data.settings);
+      }
+    }
+
+    async function saveReminderSettings() {
+      const id = deviceId();
+      const settings = reminderSettingsFromForm();
+
+      await apiPost("/api/reminders/settings", {
+        deviceId: id,
+        settings
+      });
+      await syncReminderDay(dateKey(new Date()));
+      showToast("Lembretes salvos.");
+    }
+
+    async function syncReminderDay(day) {
+      const id = existingDeviceId();
+      if (!id) return;
+
+      await apiPost("/api/reminders/state", {
+        deviceId: id,
+        state: reminderDayState(day)
+      });
+    }
+
+    function syncReminderDayQuietly(day) {
+      syncReminderDay(day).catch(() => {});
     }
 
     async function refreshNotificationStatus() {
@@ -1381,6 +1617,7 @@
         subscription: subscription.toJSON()
       });
 
+      await saveReminderSettings();
       await refreshNotificationStatus();
       showToast("Notificações ativadas.");
     }
@@ -1389,6 +1626,13 @@
       const subscription = await getPushSubscription();
       if (subscription) await subscription.unsubscribe();
 
+      const settings = reminderSettingsFromForm();
+      settings.enabled = false;
+      applyReminderSettingsToForm(settings);
+      await apiPost("/api/reminders/settings", {
+        deviceId: deviceId(),
+        settings
+      });
       await apiPost("/api/push/unsubscribe", { deviceId: deviceId() });
       await refreshNotificationStatus();
       showToast("Notificações desativadas.");
@@ -1911,6 +2155,7 @@
       saveDayMeta();
       document.getElementById("historyDate").value = day;
       render();
+      syncReminderDayQuietly(day);
       fillManualForm(day);
       closeManualEditor();
       showToast("Horários salvos e cálculos atualizados.");
@@ -1989,6 +2234,7 @@
           saveRecords();
           saveDayMeta();
           render();
+          syncReminderDayQuietly(dateKey(new Date()));
           showToast("Backup restaurado com sucesso.");
         } catch {
           showToast("Arquivo de backup inválido.");
@@ -2058,13 +2304,17 @@
       saveRecords();
       render();
       syncManualDate(dateKey(now));
+      syncReminderDayQuietly(today);
       showToast(`${labels[type]} registrado às ${timeText(now)}.`);
     }
 
     function deleteRecord(id) {
+      const deleted = state.records.find(record => record.id === id);
+      const day = deleted ? recordDayKey(deleted) : dateKey(new Date());
       state.records = state.records.filter(record => record.id !== id);
       saveRecords();
       render();
+      syncReminderDayQuietly(day);
       showToast("Registro apagado.");
     }
 
@@ -2325,6 +2575,17 @@
       document.body.classList.remove("drawer-open");
     }
 
+    function selectTab(tabName) {
+      state.tab = tabName;
+      document.querySelectorAll(".tab").forEach(tab => tab.classList.toggle("active", tab.dataset.tab === state.tab));
+      document.querySelectorAll(".page").forEach(panel => panel.classList.remove("active"));
+      document.getElementById(`panel-${state.tab}`).classList.add("active");
+      if (location.hash !== `#${tabName}`) {
+        history.replaceState(null, "", `#${tabName}`);
+      }
+      closeDrawer();
+    }
+
     document.querySelectorAll(".punch-btn").forEach(button => {
       button.addEventListener("click", () => addRecord(button.dataset.type));
     });
@@ -2334,17 +2595,13 @@
     document.getElementById("drawerBackdrop").addEventListener("click", closeDrawer);
 
     document.getElementById("editToday").addEventListener("click", () => {
-      document.querySelector('[data-tab="history"]').click();
+      selectTab("history");
       openManualEditor(dateKey(new Date()));
     });
 
     document.querySelectorAll(".tab").forEach(button => {
       button.addEventListener("click", () => {
-        state.tab = button.dataset.tab;
-        document.querySelectorAll(".tab").forEach(tab => tab.classList.toggle("active", tab.dataset.tab === state.tab));
-        document.querySelectorAll(".page").forEach(panel => panel.classList.remove("active"));
-        document.getElementById(`panel-${state.tab}`).classList.add("active");
-        closeDrawer();
+        selectTab(button.dataset.tab);
       });
     });
 
@@ -2401,6 +2658,7 @@
       state.records = [];
       saveRecords();
       render();
+      syncReminderDayQuietly(dateKey(new Date()));
       showToast("Todos os registros foram apagados.");
     });
 
@@ -2415,6 +2673,12 @@
     });
 
     document.getElementById("exportCsv").addEventListener("click", exportCsv);
+
+    document.getElementById("saveReminders").addEventListener("click", () => {
+      saveReminderSettings().catch(error => {
+        showToast(error.message || "Não foi possível salvar os lembretes.");
+      });
+    });
 
     document.getElementById("enableNotifications").addEventListener("click", () => {
       activateNotifications().catch(error => {
@@ -2437,8 +2701,20 @@
       });
     });
 
+    window.addEventListener("hashchange", () => {
+      const tab = location.hash.replace("#", "");
+      if (["overview", "register", "history", "month", "backup", "notifications"].includes(tab)) {
+        selectTab(tab);
+      }
+    });
+
     syncManualDate(dateKey(new Date()));
     render();
+    const initialTab = location.hash.replace("#", "");
+    if (["overview", "register", "history", "month", "backup", "notifications"].includes(initialTab)) {
+      selectTab(initialTab);
+    }
+    loadReminderSettings().catch(() => {});
     refreshNotificationStatus();
     window.setInterval(renderClock, 1000);
 

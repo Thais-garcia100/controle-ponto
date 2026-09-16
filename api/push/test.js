@@ -57,7 +57,7 @@ module.exports = async function handler(req, res) {
     const payload = JSON.stringify({
       title: "Controle de Ponto",
       body: body.message || "Push de teste enviado pelo Controle de Ponto.",
-      url: "/"
+      url: "/#register"
     });
 
     await webpush.sendNotification(record.subscription, payload);

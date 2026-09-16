@@ -3,9 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
+    "@upstash/qstash": "^2.8.4",
     "web-push": "^3.6.7"
   },
   "scripts": {
+    "qstash:schedule": "node scripts/create-qstash-reminders-schedule.js",
     "start": "python -m http.server 8080"
   }
 }
